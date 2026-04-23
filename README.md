@@ -1,42 +1,59 @@
 # PartScope
 
-Standalone Three.js CAD review app for mechanical assemblies and agentic CAD workflows.
+PartScope is a small Three.js viewer for reviewing STL assemblies in the browser.
+It is built for the tight loop: open the model, inspect the stack, cut a section, isolate a part, move on.
 
-## Development
+![PartScope overview](.github/screenshots/partscope-overview.png)
+
+## Why It Exists
+
+Most CAD review tools are either too heavy, too closed, or too tied to a larger system.
+PartScope keeps the job narrow:
+
+- inspect a mechanical assembly quickly
+- compare parts in context
+- check sections, edges, and exploded views
+- keep the asset flow local and simple
+
+## Features
+
+- View presets for fast orientation
+- Exploded view and adjustable spin
+- Section cuts on X, Y, and Z
+- Edge, wireframe, x-ray, and grid overlays
+- Part selection, focus, and isolation
+- Included sample assembly for out-of-the-box use
+
+![PartScope section view](.github/screenshots/partscope-section.png)
+
+## Quick Start
 
 ```bash
 npm install
-npm run link:assets -- /absolute/path/to/export/folder
 npm run dev
 ```
 
-`link:assets` creates a local symlink at:
+That starts the viewer with the included sample assembly in `public/models/concept_puck_v3`.
 
-- `public/models/concept_puck_v3`
+## Use Your Own STL Export
 
-Point it at any compatible STL export folder that contains the expected STL part set.
-
-Example:
+Point the viewer at a local export folder:
 
 ```bash
-npm run link:assets -- /path/to/concept_puck_v3
+npm run link:assets -- /absolute/path/to/export/folder
 ```
 
-## Build
+That replaces `public/models/concept_puck_v3` with a local symlink, so your real assembly loads without committing private geometry.
+
+To restore the included sample assembly:
 
 ```bash
-npm run build
+npm run generate:sample-assets
 ```
 
-## Notes
+## Model Contract
 
-- The viewer is intentionally split from hardware generation scripts so UI and CAD review tooling can evolve independently.
-- The asset symlink is generated locally and ignored by git, so the repo stays public-safe and machine-agnostic.
-- If you want this repo to be fully self-contained for public users, replace the local symlink flow with committed sample assets or a download script.
-
-## Expected asset names
-
-The default viewer configuration looks for these STL files in the linked folder:
+The current viewer configuration expects these STL filenames:
 
 - `concept_puck_v3_base.stl`
 - `concept_puck_v3_battery_18650.stl`
@@ -46,3 +63,15 @@ The default viewer configuration looks for these STL files in the linked folder:
 - `concept_puck_v3_sensor_board.stl`
 - `concept_puck_v3_top.stl`
 - `concept_puck_v3_vibration_sensor.stl`
+
+## Build
+
+```bash
+npm run build
+```
+
+## Notes
+
+- The sample geometry is intentionally simple. It exists to make the repo runnable and document the expected part layout.
+- The viewer stays separate from hardware generation scripts so the review surface can evolve independently.
+- The local symlink flow is still the intended path for real assemblies.
