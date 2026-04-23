@@ -1,0 +1,20 @@
+{
+  "name": "partscope",
+  "description": "Minimal Three.js CAD review tool for inspecting STL assemblies with sections, explode views, and engineering overlays.",
+  "version": "0.1.0",
+  "private": false,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "link:assets": "node ./scripts/link-local-assets.mjs"
+  },
+  "dependencies": {
+    "three": "^0.179.1"
+  },
+  "devDependencies": {
+    "vite": "^8.0.10"
+  }
+}

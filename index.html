@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23253139'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23d9dee4'/%3E%3C/svg%3E" />
+    <title>PartScope</title>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="scene" aria-label="PartScope CAD review viewport"></canvas>
+
+      <section class="hud titlebar" aria-label="Model status">
+        <div class="identity">
+          <p class="eyebrow">Spatial CAD Review</p>
+          <h1>PartScope</h1>
+        </div>
+        <div class="model-readout">
+          <div class="readout-row">
+            <button id="themeToggle" class="theme-btn" type="button" aria-pressed="false" title="Toggle dark mode">
+              <span aria-hidden="true">◐</span>
+              <span>Dark</span>
+            </button>
+            <div class="status" id="status">Loading geometry</div>
+          </div>
+          <div class="metric-row" id="modelMetrics">--</div>
+        </div>
+      </section>
+
+      <section class="hud viewbar" aria-label="View presets">
+        <button class="view-btn" type="button" data-view="iso" title="Isometric view">Iso</button>
+        <button class="view-btn" type="button" data-view="top" title="Top view">Top</button>
+        <button class="view-btn" type="button" data-view="front" title="Front view">Front</button>
+        <button class="view-btn" type="button" data-view="right" title="Right view">Right</button>
+        <button class="view-btn" type="button" data-view="left" title="Left view">Left</button>
+        <button class="view-btn" type="button" data-view="bottom" title="Bottom view">Bottom</button>
+      </section>
+
+      <section class="hud controls" aria-label="Assembly controls">
+        <div class="primary-actions">
+          <button id="toggleExplode" type="button" aria-pressed="false" title="Toggle exploded view">
+            <span aria-hidden="true">⇅</span>
+            <span>Explode</span>
+          </button>
+          <button id="toggleSpin" type="button" aria-pressed="true" title="Toggle automatic rotation">
+            <span aria-hidden="true">⟳</span>
+            <span>Spin</span>
+          </button>
+          <button id="resetCamera" type="button" title="Reset camera">
+            <span aria-hidden="true">⌂</span>
+            <span>Reset</span>
+          </button>
+          <button id="focusSelected" type="button" title="Frame selected part">
+            <span aria-hidden="true">⌖</span>
+            <span>Focus</span>
+          </button>
+        </div>
+
+        <details class="control-panel" open>
+          <summary>Motion</summary>
+          <label class="slider-row" for="explodeRange">
+            <span>Stack</span>
+            <input id="explodeRange" type="range" min="0" max="1" value="0" step="0.001" />
+            <output id="explodeValue">0%</output>
+          </label>
+
+          <label class="slider-row" for="spinRange">
+            <span>Spin</span>
+            <input id="spinRange" type="range" min="-100" max="100" value="22" step="1" />
+            <output id="spinValue">22%</output>
+          </label>
+        </details>
+
+        <details class="control-panel">
+          <summary>Analysis</summary>
+          <div class="axis-row" aria-label="Section axis">
+            <span id="sectionAxisLabel">Cut Z</span>
+            <div class="axis-toggle">
+              <button class="axis-btn" type="button" data-section-axis="x" aria-pressed="false">X</button>
+              <button class="axis-btn" type="button" data-section-axis="y" aria-pressed="false">Y</button>
+              <button class="axis-btn" type="button" data-section-axis="z" aria-pressed="true">Z</button>
+            </div>
+          </div>
+          <label class="slider-row" for="sectionRange">
+            <span>Plane</span>
+            <input id="sectionRange" type="range" min="0" max="32" value="32" step="0.1" disabled />
+            <output id="sectionValue">off</output>
+          </label>
+
+          <div class="tool-row">
+            <button id="toggleSection" class="toggle-small" type="button" aria-pressed="false">Section</button>
+            <button id="toggleEdges" class="toggle-small" type="button" aria-pressed="true">Edges</button>
+            <button id="toggleWireframe" class="toggle-small" type="button" aria-pressed="false">Wire</button>
+            <button id="toggleXray" class="toggle-small" type="button" aria-pressed="false">X-Ray</button>
+            <button id="toggleGrid" class="toggle-small" type="button" aria-pressed="true">Grid</button>
+          </div>
+        </details>
+      </section>
+
+      <aside class="hud inspector" aria-label="Part inspector">
+        <details class="inspector-panel" open>
+          <summary>
+            <span>Selection</span>
+            <strong id="selectedName">No selection</strong>
+          </summary>
+          <div class="panel-heading compact">
+            <button id="isolateSelected" class="link-btn" type="button">Isolate</button>
+            <button id="showAllParts" class="link-btn" type="button">Show all</button>
+          </div>
+          <dl id="selectedMetrics" class="metrics-list">
+            <div>
+              <dt>Selection</dt>
+              <dd>Click a part</dd>
+            </div>
+          </dl>
+        </details>
+
+        <details class="inspector-panel">
+          <summary>
+            <span>Assembly</span>
+            <strong>8 parts</strong>
+          </summary>
+          <div class="part-list" id="partList" aria-label="Visible parts"></div>
+        </details>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
