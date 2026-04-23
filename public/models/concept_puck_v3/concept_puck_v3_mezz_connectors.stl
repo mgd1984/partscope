@@ -1,0 +1,422 @@
+solid concept_puck_v3_mezz_connectors.stl
+  facet normal 0 0 1
+    outer loop
+      vertex -7 -7 9
+      vertex 7 -7 9
+      vertex 7 7 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -7 -7 9
+      vertex 7 7 9
+      vertex -7 7 9
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -7 -7 13
+      vertex 7 7 13
+      vertex 7 -7 13
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -7 -7 13
+      vertex -7 7 13
+      vertex 7 7 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex -7 -7 9
+      vertex -7 -7 13
+      vertex 7 -7 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex -7 -7 9
+      vertex 7 -7 13
+      vertex 7 -7 9
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 7 -7 9
+      vertex 7 -7 13
+      vertex 7 7 13
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 7 -7 9
+      vertex 7 7 13
+      vertex 7 7 9
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 7 7 9
+      vertex 7 7 13
+      vertex -7 7 13
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 7 7 9
+      vertex -7 7 13
+      vertex -7 7 9
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex -7 7 9
+      vertex -7 7 13
+      vertex -7 -7 13
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex -7 7 9
+      vertex -7 -7 13
+      vertex -7 -7 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -15 -15 9
+      vertex -11 -15 9
+      vertex -11 -11 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -15 -15 9
+      vertex -11 -11 9
+      vertex -15 -11 9
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -15 -15 13
+      vertex -11 -11 13
+      vertex -11 -15 13
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -15 -15 13
+      vertex -15 -11 13
+      vertex -11 -11 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex -15 -15 9
+      vertex -15 -15 13
+      vertex -11 -15 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex -15 -15 9
+      vertex -11 -15 13
+      vertex -11 -15 9
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -11 -15 9
+      vertex -11 -15 13
+      vertex -11 -11 13
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -11 -15 9
+      vertex -11 -11 13
+      vertex -11 -11 9
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -11 -11 9
+      vertex -11 -11 13
+      vertex -15 -11 13
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -11 -11 9
+      vertex -15 -11 13
+      vertex -15 -11 9
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex -15 -11 9
+      vertex -15 -11 13
+      vertex -15 -15 13
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex -15 -11 9
+      vertex -15 -15 13
+      vertex -15 -15 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 11 -15 9
+      vertex 15 -15 9
+      vertex 15 -11 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 11 -15 9
+      vertex 15 -11 9
+      vertex 11 -11 9
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 11 -15 13
+      vertex 15 -11 13
+      vertex 15 -15 13
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 11 -15 13
+      vertex 11 -11 13
+      vertex 15 -11 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 11 -15 9
+      vertex 11 -15 13
+      vertex 15 -15 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 11 -15 9
+      vertex 15 -15 13
+      vertex 15 -15 9
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 15 -15 9
+      vertex 15 -15 13
+      vertex 15 -11 13
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 15 -15 9
+      vertex 15 -11 13
+      vertex 15 -11 9
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 15 -11 9
+      vertex 15 -11 13
+      vertex 11 -11 13
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 15 -11 9
+      vertex 11 -11 13
+      vertex 11 -11 9
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 11 -11 9
+      vertex 11 -11 13
+      vertex 11 -15 13
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 11 -11 9
+      vertex 11 -15 13
+      vertex 11 -15 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -15 11 9
+      vertex -11 11 9
+      vertex -11 15 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex -15 11 9
+      vertex -11 15 9
+      vertex -15 15 9
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -15 11 13
+      vertex -11 15 13
+      vertex -11 11 13
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex -15 11 13
+      vertex -15 15 13
+      vertex -11 15 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex -15 11 9
+      vertex -15 11 13
+      vertex -11 11 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex -15 11 9
+      vertex -11 11 13
+      vertex -11 11 9
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -11 11 9
+      vertex -11 11 13
+      vertex -11 15 13
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex -11 11 9
+      vertex -11 15 13
+      vertex -11 15 9
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -11 15 9
+      vertex -11 15 13
+      vertex -15 15 13
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex -11 15 9
+      vertex -15 15 13
+      vertex -15 15 9
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex -15 15 9
+      vertex -15 15 13
+      vertex -15 11 13
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex -15 15 9
+      vertex -15 11 13
+      vertex -15 11 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 11 11 9
+      vertex 15 11 9
+      vertex 15 15 9
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 11 11 9
+      vertex 15 15 9
+      vertex 11 15 9
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 11 11 13
+      vertex 15 15 13
+      vertex 15 11 13
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 11 11 13
+      vertex 11 15 13
+      vertex 15 15 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 11 11 9
+      vertex 11 11 13
+      vertex 15 11 13
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 11 11 9
+      vertex 15 11 13
+      vertex 15 11 9
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 15 11 9
+      vertex 15 11 13
+      vertex 15 15 13
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 15 11 9
+      vertex 15 15 13
+      vertex 15 15 9
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 15 15 9
+      vertex 15 15 13
+      vertex 11 15 13
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 15 15 9
+      vertex 11 15 13
+      vertex 11 15 9
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 11 15 9
+      vertex 11 15 13
+      vertex 11 11 13
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 11 15 9
+      vertex 11 11 13
+      vertex 11 11 9
+    endloop
+  endfacet
+endsolid concept_puck_v3_mezz_connectors.stl
