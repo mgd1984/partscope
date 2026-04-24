@@ -22,7 +22,7 @@ PartScope keeps the job narrow:
 - Section cuts on X, Y, and Z
 - Edge, wireframe, x-ray, and grid overlays
 - Part selection, focus, and isolation
-- Included sample assembly for out-of-the-box use
+- Local sample assembly generator for first-run development
 
 ![PartScope section view](.github/screenshots/partscope-section.png)
 
@@ -30,10 +30,12 @@ PartScope keeps the job narrow:
 
 ```bash
 npm install
+npm run generate:sample-assets
 npm run dev
 ```
 
-That starts the viewer with the included sample assembly in `public/models/concept_puck_v3`.
+That generates a local sample assembly in `public/models/concept_puck_v3`, then starts the viewer.
+The generated STL files are ignored by git so they do not replace production geometry in deployed builds.
 
 ## Use Your Own STL Export
 
@@ -45,7 +47,7 @@ npm run link:assets -- /absolute/path/to/export/folder
 
 That replaces `public/models/concept_puck_v3` with a local symlink, so your real assembly loads without committing private geometry.
 
-To restore the included sample assembly:
+To restore the local sample assembly:
 
 ```bash
 npm run generate:sample-assets
@@ -72,6 +74,6 @@ npm run build
 
 ## Notes
 
-- The sample geometry is intentionally simple. It exists to make the repo runnable and document the expected part layout.
+- The sample geometry is intentionally simple and local-only. It exists to make the repo runnable and document the expected part layout without shipping demo geometry in production.
 - The viewer stays separate from hardware generation scripts so the review surface can evolve independently.
 - The local symlink flow is still the intended path for real assemblies.
