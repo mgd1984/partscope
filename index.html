@@ -8,8 +8,39 @@
     <title>PartScope</title>
   </head>
   <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0 5 5m-5-5-5 5"/><path d="M4 16v3h16v-3"/></symbol>
+      <symbol id="i-demo" viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7Z"/><path d="m4 7 8 4 8-4M12 11v10"/></symbol>
+      <symbol id="i-theme" viewBox="0 0 24 24"><path d="M21 13.2A7.6 7.6 0 1 1 10.8 3 8.7 8.7 0 0 0 21 13.2Z"/></symbol>
+      <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></symbol>
+      <symbol id="i-iso" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></symbol>
+      <symbol id="i-top" viewBox="0 0 24 24"><path d="M12 3v18M6 9l6-6 6 6"/><path d="M5 21h14"/></symbol>
+      <symbol id="i-front" viewBox="0 0 24 24"><path d="M4 6h16v12H4Z"/><path d="M8 10h8v4H8Z"/></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></symbol>
+      <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5m0 0 5-5m-5 5 5 5"/></symbol>
+      <symbol id="i-bottom" viewBox="0 0 24 24"><path d="M12 21V3M6 15l6 6 6-6"/><path d="M5 3h14"/></symbol>
+      <symbol id="i-explode" viewBox="0 0 24 24"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/><path d="M5 12h14"/></symbol>
+      <symbol id="i-spin" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v6h-6"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m4 12 8-7 8 7"/><path d="M6 10.5V20h12v-9.5"/></symbol>
+      <symbol id="i-focus" viewBox="0 0 24 24"><path d="M9 3H4v5M15 3h5v5M9 21H4v-5M15 21h5v-5"/><path d="M12 8v8M8 12h8"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-all" viewBox="0 0 24 24"><path d="M4 5h7v7H4ZM13 5h7v7h-7ZM4 14h7v5H4ZM13 14h7v5h-7Z"/></symbol>
+      <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 4v12m0 0-5-5m5 5 5-5"/><path d="M4 20h16"/></symbol>
+      <symbol id="i-slice" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><path d="M7 5h10v14H7Z"/></symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24"><path d="M8 7h.01M12 7h.01M16 7h.01M8 12h.01M12 12h.01M16 12h.01M8 17h.01M12 17h.01M16 17h.01"/></symbol>
+      <symbol id="i-dock" viewBox="0 0 24 24"><path d="M5 5h14v14H5Z"/><path d="M14 5v14"/></symbol>
+      <symbol id="i-minimize" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+    </svg>
+
     <main id="app">
       <canvas id="scene" aria-label="PartScope CAD review viewport"></canvas>
+      <div id="dropOverlay" class="drop-overlay" hidden>
+        <div>
+          <svg class="icon xl"><use href="#i-upload"></use></svg>
+          <span>Drop CAD files</span>
+          <small>STL, OBJ, PLY, GLB, GLTF, 3MF</small>
+        </div>
+      </div>
 
       <section class="hud titlebar" aria-label="Model status">
         <div class="identity">
@@ -18,62 +49,49 @@
         </div>
         <div class="model-readout">
           <div class="readout-row">
-            <button id="uploadTrigger" class="theme-btn" type="button" title="Load STL files from this device">
-              <span aria-hidden="true">+</span>
-              <span>Load STL</span>
+            <button id="uploadTrigger" class="icon-btn" type="button" title="Load CAD files" aria-label="Load CAD files">
+              <svg class="icon"><use href="#i-upload"></use></svg>
             </button>
-            <button id="restoreDemo" class="theme-btn" type="button" title="Restore bundled demo assembly">
-              <span aria-hidden="true">◎</span>
-              <span>Demo</span>
+            <button id="restoreDemo" class="icon-btn" type="button" title="Restore demo assembly" aria-label="Restore demo assembly">
+              <svg class="icon"><use href="#i-demo"></use></svg>
             </button>
-            <button id="themeToggle" class="theme-btn" type="button" aria-pressed="false" title="Toggle dark mode">
-              <span aria-hidden="true">◐</span>
-              <span>Dark</span>
+            <button id="themeToggle" class="icon-btn" type="button" aria-pressed="false" title="Toggle dark mode" aria-label="Toggle dark mode">
+              <svg class="icon"><use href="#i-theme"></use></svg>
             </button>
-            <div class="status" id="status">Loading geometry</div>
+            <button id="fullscreenToggle" class="icon-btn" type="button" aria-pressed="false" title="Enter fullscreen" aria-label="Enter fullscreen">
+              <svg class="icon"><use href="#i-fullscreen"></use></svg>
+            </button>
+            <div class="status" id="status" role="status" aria-label="Loading geometry"></div>
           </div>
-          <div class="metric-row" id="modelMetrics">--</div>
         </div>
-        <input id="filePicker" type="file" accept=".stl" multiple hidden />
+        <input id="filePicker" type="file" accept=".stl,.obj,.ply,.glb,.gltf,.3mf" multiple hidden />
       </section>
 
       <section class="hud viewbar" aria-label="View presets">
-        <button class="view-btn" type="button" data-view="iso" title="Isometric view">Iso</button>
-        <button class="view-btn" type="button" data-view="top" title="Top view">Top</button>
-        <button class="view-btn" type="button" data-view="front" title="Front view">Front</button>
-        <button class="view-btn" type="button" data-view="right" title="Right view">Right</button>
-        <button class="view-btn" type="button" data-view="left" title="Left view">Left</button>
-        <button class="view-btn" type="button" data-view="bottom" title="Bottom view">Bottom</button>
+        <div class="viewbar-group" aria-label="View orientation">
+          <button class="view-btn" type="button" data-view="iso" title="Isometric view" aria-label="Isometric view"><svg class="icon"><use href="#i-iso"></use></svg></button>
+          <button class="view-btn" type="button" data-view="top" title="Top view" aria-label="Top view"><svg class="icon"><use href="#i-top"></use></svg></button>
+          <button class="view-btn" type="button" data-view="front" title="Front view" aria-label="Front view"><svg class="icon"><use href="#i-front"></use></svg></button>
+          <button class="view-btn" type="button" data-view="right" title="Right view" aria-label="Right view"><svg class="icon"><use href="#i-right"></use></svg></button>
+          <button class="view-btn" type="button" data-view="left" title="Left view" aria-label="Left view"><svg class="icon"><use href="#i-left"></use></svg></button>
+          <button class="view-btn" type="button" data-view="bottom" title="Bottom view" aria-label="Bottom view"><svg class="icon"><use href="#i-bottom"></use></svg></button>
+        </div>
+        <div class="viewbar-group command-group" aria-label="Canvas commands">
+          <button id="toggleExplode" class="view-btn" type="button" aria-pressed="false" title="Toggle exploded view" aria-label="Toggle exploded view"><svg class="icon"><use href="#i-explode"></use></svg></button>
+          <button id="toggleSpin" class="view-btn" type="button" aria-pressed="true" title="Toggle automatic rotation" aria-label="Toggle automatic rotation"><svg class="icon"><use href="#i-spin"></use></svg></button>
+          <button id="resetCamera" class="view-btn" type="button" title="Reset camera" aria-label="Reset camera"><svg class="icon"><use href="#i-home"></use></svg></button>
+          <button id="focusSelected" class="view-btn" type="button" title="Frame selected part" aria-label="Frame selected part"><svg class="icon"><use href="#i-focus"></use></svg></button>
+        </div>
       </section>
 
-      <section class="hud controls" aria-label="Assembly controls">
-        <div class="primary-actions">
-          <button id="toggleExplode" type="button" aria-pressed="false" title="Toggle exploded view">
-            <span aria-hidden="true">⇅</span>
-            <span>Explode</span>
-          </button>
-          <button id="toggleSpin" type="button" aria-pressed="true" title="Toggle automatic rotation">
-            <span aria-hidden="true">⟳</span>
-            <span>Spin</span>
-          </button>
-          <button id="resetCamera" type="button" title="Reset camera">
-            <span aria-hidden="true">⌂</span>
-            <span>Reset</span>
-          </button>
-          <button id="focusSelected" type="button" title="Frame selected part">
-            <span aria-hidden="true">⌖</span>
-            <span>Focus</span>
-          </button>
-        </div>
-
-        <details class="control-panel" open>
+      <section id="footerControls" class="hud controls" aria-label="Assembly controls">
+        <details class="control-panel">
           <summary>Motion</summary>
           <label class="slider-row" for="explodeRange">
             <span>Stack</span>
             <input id="explodeRange" type="range" min="0" max="1" value="0" step="0.001" />
             <output id="explodeValue">0%</output>
           </label>
-
           <label class="slider-row" for="spinRange">
             <span>Spin</span>
             <input id="spinRange" type="range" min="-100" max="100" value="22" step="1" />
@@ -96,7 +114,6 @@
             <input id="sectionRange" type="range" min="0" max="32" value="32" step="0.1" disabled />
             <output id="sectionValue">off</output>
           </label>
-
           <div class="tool-row">
             <button id="toggleSection" class="toggle-small" type="button" aria-pressed="false">Section</button>
             <button id="toggleEdges" class="toggle-small" type="button" aria-pressed="true">Edges</button>
@@ -107,15 +124,27 @@
         </details>
       </section>
 
-      <aside class="hud inspector" aria-label="Part inspector">
+      <div class="hud metric-row model-footer" id="modelMetrics">--</div>
+
+      <aside id="sidecar" class="hud inspector" aria-label="Part sidecar">
+        <div id="sidecarGrip" class="sidecar-header" role="button" tabindex="0" aria-label="Drag inspector palette">
+          <svg class="icon"><use href="#i-grip"></use></svg>
+          <span class="sidecar-title">Inspector</span>
+          <button id="sidecarDock" class="icon-btn subtle" type="button" title="Dock inspector" aria-label="Dock inspector">
+            <svg class="icon"><use href="#i-dock"></use></svg>
+          </button>
+          <button id="sidecarMinimize" class="icon-btn subtle" type="button" aria-pressed="false" title="Collapse inspector" aria-label="Collapse inspector">
+            <svg class="icon"><use href="#i-minimize"></use></svg>
+          </button>
+        </div>
         <details class="inspector-panel" open>
           <summary>
             <span>Selection</span>
             <strong id="selectedName">No selection</strong>
           </summary>
-          <div class="panel-heading compact">
-            <button id="isolateSelected" class="link-btn" type="button">Isolate</button>
-            <button id="showAllParts" class="link-btn" type="button">Show all</button>
+          <div class="panel-heading compact icon-actions">
+            <button id="isolateSelected" class="icon-btn subtle" type="button" aria-pressed="false" title="Isolate selected part" aria-label="Isolate selected part"><svg class="icon"><use href="#i-eye"></use></svg></button>
+            <button id="showAllParts" class="icon-btn subtle" type="button" title="Show all parts" aria-label="Show all parts"><svg class="icon"><use href="#i-all"></use></svg></button>
           </div>
           <dl id="selectedMetrics" class="metrics-list">
             <div>
@@ -131,6 +160,55 @@
             <strong id="assemblyCount">8 parts</strong>
           </summary>
           <div class="part-list" id="partList" aria-label="Visible parts"></div>
+        </details>
+
+        <details class="inspector-panel">
+          <summary>
+            <span>Exchange</span>
+            <strong>CAD I/O</strong>
+          </summary>
+          <div class="io-panel">
+            <p id="importFormat" class="microcopy">Import: STL, OBJ, PLY, GLB, GLTF, 3MF</p>
+            <label class="select-row" for="exportFormat">
+              <span>Export</span>
+              <select id="exportFormat">
+                <option value="stl">STL</option>
+                <option value="obj">OBJ</option>
+                <option value="ply">PLY</option>
+                <option value="glb">GLB</option>
+              </select>
+            </label>
+            <div class="dual-actions">
+              <button id="exportAssembly" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>Model</span></button>
+              <button id="exportSelected" type="button"><svg class="icon"><use href="#i-focus"></use></svg><span>Selected</span></button>
+            </div>
+          </div>
+        </details>
+
+        <details class="inspector-panel">
+          <summary>
+            <span>Slicer</span>
+            <strong>CAM</strong>
+          </summary>
+          <label class="slider-row" for="layerHeight">
+            <span>Layer</span>
+            <input id="layerHeight" type="range" min="0.08" max="0.4" value="0.2" step="0.01" />
+            <output id="layerHeightValue">0.20 mm</output>
+          </label>
+          <label class="slider-row" for="sliceLayer">
+            <span>Index</span>
+            <input id="sliceLayer" type="range" min="0" max="1" value="0" step="1" />
+            <output id="sliceLayerValue">--</output>
+          </label>
+          <div class="dual-actions">
+            <button id="toggleSlicer" type="button" aria-pressed="false"><svg class="icon"><use href="#i-slice"></use></svg><span>Preview</span></button>
+            <button id="exportGcode" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>CNC G-code</span></button>
+          </div>
+          <div class="dual-actions secondary-actions">
+            <button id="exportPrintPackage" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>Print ZIP</span></button>
+            <button id="exportSliceSvg" type="button"><svg class="icon"><use href="#i-slice"></use></svg><span>Layer SVG</span></button>
+          </div>
+          <p id="slicerStats" class="microcopy">Preview off</p>
         </details>
       </aside>
     </main>

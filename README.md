@@ -1,7 +1,7 @@
 # PartScope
 
-PartScope is a small Three.js viewer for reviewing STL assemblies in the browser.
-It is built for the tight loop: open the model, inspect the stack, cut a section, isolate a part, move on.
+PartScope is a small Three.js viewer for reviewing mechanical assemblies in the browser.
+It is built for the tight loop: open the model, inspect the stack, cut a section, isolate a part, export what you need, move on.
 
 ![PartScope overview](.github/screenshots/partscope-overview.png)
 
@@ -13,6 +13,7 @@ PartScope keeps the job narrow:
 - inspect a mechanical assembly quickly
 - compare parts in context
 - check sections, edges, and exploded views
+- export common CAD/CAM handoff formats
 - keep the asset flow local and simple
 
 ## Features
@@ -22,8 +23,14 @@ PartScope keeps the job narrow:
 - Section cuts on X, Y, and Z
 - Edge, wireframe, x-ray, and grid overlays
 - Part selection, focus, and isolation
+- Movable and collapsible inspector palette
+- Fullscreen mode
+- CAD import for STL, OBJ, PLY, GLB, GLTF, and 3MF
+- CAD export for STL, OBJ, PLY, and GLB
+- CNC contour G-code export
+- Additive print package export with layer SVGs, contour JSON, source STL, manifest, README, and animated preview GIF
 - Bundled demo assembly
-- Local STL upload from file picker or drag and drop
+- Local CAD upload from file picker or drag and drop
 
 ![PartScope section view](.github/screenshots/partscope-section.png)
 
@@ -35,7 +42,7 @@ npm run dev
 ```
 
 That starts the viewer with the bundled demo assembly in `public/models/concept_puck_v3`.
-Use `Load STL` or drag `.stl` files onto the window to inspect local geometry without uploading it anywhere.
+Use the load control or drag supported CAD files onto the window to inspect local geometry without uploading it anywhere.
 
 ## Model Contract
 
