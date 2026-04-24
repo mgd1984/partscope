@@ -18,6 +18,14 @@
         </div>
         <div class="model-readout">
           <div class="readout-row">
+            <button id="uploadTrigger" class="theme-btn" type="button" title="Load STL files from this device">
+              <span aria-hidden="true">+</span>
+              <span>Load STL</span>
+            </button>
+            <button id="restoreDemo" class="theme-btn" type="button" title="Restore bundled demo assembly">
+              <span aria-hidden="true">◎</span>
+              <span>Demo</span>
+            </button>
             <button id="themeToggle" class="theme-btn" type="button" aria-pressed="false" title="Toggle dark mode">
               <span aria-hidden="true">◐</span>
               <span>Dark</span>
@@ -26,6 +34,7 @@
           </div>
           <div class="metric-row" id="modelMetrics">--</div>
         </div>
+        <input id="filePicker" type="file" accept=".stl" multiple hidden />
       </section>
 
       <section class="hud viewbar" aria-label="View presets">
@@ -119,7 +128,7 @@
         <details class="inspector-panel">
           <summary>
             <span>Assembly</span>
-            <strong>8 parts</strong>
+            <strong id="assemblyCount">8 parts</strong>
           </summary>
           <div class="part-list" id="partList" aria-label="Visible parts"></div>
         </details>
