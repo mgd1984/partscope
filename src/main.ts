@@ -24,6 +24,7 @@ type LoadedPart = {
   mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   edges: THREE.LineSegments;
   assembled: THREE.Vector3;
+  explodeOffset: THREE.Vector3;
   localBounds: THREE.Box3;
   triangles: number;
 };
@@ -51,7 +52,7 @@ const demoParts: PartDefinition[] = [
     color: 0x6e7f38,
     metalness: 0.18,
     roughness: 0.5,
-    explode: [8, -4, 5],
+    explode: [0, 0, 5],
   },
   {
     id: "mainBoard",
@@ -60,7 +61,7 @@ const demoParts: PartDefinition[] = [
     source: "/models/concept_puck_v3/concept_puck_v3_main_board.stl",
     color: 0x17603c,
     roughness: 0.76,
-    explode: [0, -1.6, 5],
+    explode: [0, 0, 5],
   },
   {
     id: "vibration",
@@ -70,7 +71,7 @@ const demoParts: PartDefinition[] = [
     color: 0xc07b28,
     metalness: 0.35,
     roughness: 0.34,
-    explode: [-6, -1.8, 4.5],
+    explode: [0, 0, 4.5],
   },
   {
     id: "mezz",
@@ -80,7 +81,7 @@ const demoParts: PartDefinition[] = [
     color: 0xd0b56c,
     metalness: 0.6,
     roughness: 0.34,
-    explode: [0, -1, 8.5],
+    explode: [0, 0, 8.5],
   },
   {
     id: "sensorBoard",
@@ -89,7 +90,7 @@ const demoParts: PartDefinition[] = [
     source: "/models/concept_puck_v3/concept_puck_v3_sensor_board.stl",
     color: 0x1c7a4a,
     roughness: 0.68,
-    explode: [0, 2, 13],
+    explode: [0, 0, 13],
   },
   {
     id: "mics",
@@ -99,7 +100,7 @@ const demoParts: PartDefinition[] = [
     color: 0x1c2024,
     metalness: 0.65,
     roughness: 0.28,
-    explode: [0, 2, 13],
+    explode: [0, 0, 13],
   },
   {
     id: "top",
@@ -109,7 +110,7 @@ const demoParts: PartDefinition[] = [
     color: 0xd9dee4,
     metalness: 0.04,
     roughness: 0.4,
-    explode: [0, 1.8, 22],
+    explode: [0, 0, 22],
   },
 ];
 
@@ -248,6 +249,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const stlLoader = new STLLoader();
 const loadedParts: LoadedPart[] = [];
+const EXPLODE_VERTICAL_GAP = 8;
 
 let assemblyBounds = new THREE.Box3();
 let selectedPart: LoadedPart | null = null;
@@ -397,11 +399,14 @@ async function loadAssembly(parts: PartDefinition[], label: string): Promise<voi
       mesh,
       edges,
       assembled: mesh.position.clone(),
+      explodeOffset: new THREE.Vector3(),
       localBounds,
       triangles,
     });
     updateStatus(`Loading ${index + 1} / ${parts.length}`);
   }
+
+  configureExplodeOffsets();
 
   const rawBounds = new THREE.Box3().setFromObject(assembly);
   const center = rawBounds.getCenter(new THREE.Vector3());
@@ -869,8 +874,7 @@ function normalizeSortIndex(index: number, fileName: string): string {
 
 function fallbackExplode(index: number): THREE.Vector3Tuple {
   const ring = Math.floor(index / 6) + 1;
-  const angle = (index % 6) * (Math.PI / 3);
-  return [Math.cos(angle) * 7 * ring, Math.sin(angle) * 7 * ring, 5 + ring * 4];
+  return [0, 0, 5 + ring * 4];
 }
 
 function fallbackColor(index: number): number {
@@ -915,9 +919,57 @@ function updateExplodeUi(): void {
   toggleExplodeEl.setAttribute("aria-pressed", String(explodeTarget > 0.5));
 }
 
+function configureExplodeOffsets(): void {
+  if (!loadedParts.length) return;
+
+  for (const part of loadedParts) {
+    part.explodeOffset.set(0, 0, 0);
+  }
+
+  const anchorPart = loadedParts.find((part) => part.definition.id === "base")
+    ?? loadedParts.slice().sort((left, right) => left.localBounds.min.z - right.localBounds.min.z)[0];
+
+  if (!anchorPart) return;
+
+  const orderedParts = loadedParts
+    .filter((part) => part !== anchorPart)
+    .slice()
+    .sort((left, right) => left.definition.explode[2] - right.definition.explode[2]);
+
+  const layers: LoadedPart[][] = [];
+  for (const part of orderedParts) {
+    const currentLayer = layers.at(-1);
+    if (!currentLayer) {
+      layers.push([part]);
+      continue;
+    }
+
+    const previousLayerZ = currentLayer[0]?.definition.explode[2] ?? 0;
+    if (Math.abs(part.definition.explode[2] - previousLayerZ) <= 1.5) {
+      currentLayer.push(part);
+      continue;
+    }
+
+    layers.push([part]);
+  }
+
+  let previousTop = anchorPart.localBounds.max.z;
+  for (const layer of layers) {
+    const layerMinZ = Math.min(...layer.map((part) => part.localBounds.min.z));
+    const layerMaxZ = Math.max(...layer.map((part) => part.localBounds.max.z));
+    const lift = Math.max(0, previousTop + EXPLODE_VERTICAL_GAP - layerMinZ);
+
+    for (const part of layer) {
+      part.explodeOffset.set(0, 0, lift);
+    }
+
+    previousTop = layerMaxZ + lift;
+  }
+}
+
 function applyExplode(value: number): void {
   for (const part of loadedParts) {
-    const offset = new THREE.Vector3(...part.definition.explode).multiplyScalar(value);
+    const offset = part.explodeOffset.clone().multiplyScalar(value);
     part.mesh.position.copy(part.assembled).add(offset);
   }
   updateSelectionBox();
