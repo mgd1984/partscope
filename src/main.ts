@@ -143,6 +143,7 @@ const partListEl = mustQuery<HTMLElement>("#partList");
 const assemblyCountEl = mustQuery<HTMLElement>("#assemblyCount");
 const selectedNameEl = mustQuery<HTMLElement>("#selectedName");
 const selectedMetricsEl = mustQuery<HTMLElement>("#selectedMetrics");
+const footerControlsEl = mustQuery<HTMLElement>("#footerControls");
 const sidecarEl = mustQuery<HTMLElement>("#sidecar");
 const sidecarGripEl = mustQuery<HTMLElement>("#sidecarGrip");
 const sidecarDockEl = mustQuery<HTMLButtonElement>("#sidecarDock");
@@ -565,6 +566,7 @@ function buildPartToggles(): void {
 
 function bindControls(): void {
   bindSidecarControls();
+  bindFooterControls();
 
   uploadTriggerEl.addEventListener("click", () => filePickerEl.click());
   restoreDemoEl.addEventListener("click", () => {
@@ -717,6 +719,18 @@ function bindControls(): void {
   });
 
   window.addEventListener("resize", resize);
+}
+
+function bindFooterControls(): void {
+  footerControlsEl.querySelectorAll<HTMLDetailsElement>(".control-panel").forEach((panel) => {
+    panel.addEventListener("toggle", syncFooterState);
+  });
+  syncFooterState();
+}
+
+function syncFooterState(): void {
+  const hasOpenPanel = Boolean(footerControlsEl.querySelector(".control-panel[open]"));
+  document.documentElement.classList.toggle("footer-controls-open", hasOpenPanel);
 }
 
 function bindSidecarControls(): void {
