@@ -172,6 +172,8 @@ h2 {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .status,
@@ -194,6 +196,12 @@ h2 {
   padding: 0 10px;
   color: var(--muted);
   font-size: 12px;
+}
+
+#filePicker {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .theme-btn[aria-pressed="true"] {
@@ -543,6 +551,10 @@ input[type="range"]:disabled {
     top: 14px;
     left: 16px;
     right: 16px;
+  }
+
+  .readout-row {
+    justify-content: flex-start;
   }
 
   .metric-row {

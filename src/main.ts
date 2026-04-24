@@ -7,7 +7,8 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 type PartDefinition = {
   id: string;
   label: string;
-  file: string;
+  source: string | ArrayBuffer;
+  fileName: string;
   color: number;
   metalness?: number;
   roughness?: number;
@@ -27,11 +28,12 @@ type ViewPreset = "iso" | "top" | "front" | "right" | "left" | "bottom";
 type SectionAxis = "x" | "y" | "z";
 type ThemeName = "light" | "dark";
 
-const parts: PartDefinition[] = [
+const demoParts: PartDefinition[] = [
   {
     id: "base",
     label: "Base",
-    file: "/models/concept_puck_v3/concept_puck_v3_base.stl",
+    fileName: "concept_puck_v3_base.stl",
+    source: "/models/concept_puck_v3/concept_puck_v3_base.stl",
     color: 0x32363d,
     metalness: 0.72,
     roughness: 0.32,
@@ -40,7 +42,8 @@ const parts: PartDefinition[] = [
   {
     id: "battery",
     label: "18650",
-    file: "/models/concept_puck_v3/concept_puck_v3_battery_18650.stl",
+    fileName: "concept_puck_v3_battery_18650.stl",
+    source: "/models/concept_puck_v3/concept_puck_v3_battery_18650.stl",
     color: 0x6e7f38,
     metalness: 0.18,
     roughness: 0.5,
@@ -49,7 +52,8 @@ const parts: PartDefinition[] = [
   {
     id: "mainBoard",
     label: "Main board",
-    file: "/models/concept_puck_v3/concept_puck_v3_main_board.stl",
+    fileName: "concept_puck_v3_main_board.stl",
+    source: "/models/concept_puck_v3/concept_puck_v3_main_board.stl",
     color: 0x17603c,
     roughness: 0.76,
     explode: [0, -1.6, 5],
@@ -57,7 +61,8 @@ const parts: PartDefinition[] = [
   {
     id: "vibration",
     label: "Vibe reserve",
-    file: "/models/concept_puck_v3/concept_puck_v3_vibration_sensor.stl",
+    fileName: "concept_puck_v3_vibration_sensor.stl",
+    source: "/models/concept_puck_v3/concept_puck_v3_vibration_sensor.stl",
     color: 0xc07b28,
     metalness: 0.35,
     roughness: 0.34,
@@ -66,7 +71,8 @@ const parts: PartDefinition[] = [
   {
     id: "mezz",
     label: "Mezzanine",
-    file: "/models/concept_puck_v3/concept_puck_v3_mezz_connectors.stl",
+    fileName: "concept_puck_v3_mezz_connectors.stl",
+    source: "/models/concept_puck_v3/concept_puck_v3_mezz_connectors.stl",
     color: 0xd0b56c,
     metalness: 0.6,
     roughness: 0.34,
@@ -75,7 +81,8 @@ const parts: PartDefinition[] = [
   {
     id: "sensorBoard",
     label: "Sensor board",
-    file: "/models/concept_puck_v3/concept_puck_v3_sensor_board.stl",
+    fileName: "concept_puck_v3_sensor_board.stl",
+    source: "/models/concept_puck_v3/concept_puck_v3_sensor_board.stl",
     color: 0x1c7a4a,
     roughness: 0.68,
     explode: [0, 2, 13],
@@ -83,7 +90,8 @@ const parts: PartDefinition[] = [
   {
     id: "mics",
     label: "Mic capsules",
-    file: "/models/concept_puck_v3/concept_puck_v3_mic_capsules.stl",
+    fileName: "concept_puck_v3_mic_capsules.stl",
+    source: "/models/concept_puck_v3/concept_puck_v3_mic_capsules.stl",
     color: 0x1c2024,
     metalness: 0.65,
     roughness: 0.28,
@@ -92,7 +100,8 @@ const parts: PartDefinition[] = [
   {
     id: "top",
     label: "Cap",
-    file: "/models/concept_puck_v3/concept_puck_v3_top.stl",
+    fileName: "concept_puck_v3_top.stl",
+    source: "/models/concept_puck_v3/concept_puck_v3_top.stl",
     color: 0xd9dee4,
     metalness: 0.04,
     roughness: 0.4,
@@ -103,6 +112,9 @@ const parts: PartDefinition[] = [
 const canvas = mustQuery<HTMLCanvasElement>("#scene");
 const statusEl = mustQuery<HTMLElement>("#status");
 const modelMetricsEl = mustQuery<HTMLElement>("#modelMetrics");
+const uploadTriggerEl = mustQuery<HTMLButtonElement>("#uploadTrigger");
+const restoreDemoEl = mustQuery<HTMLButtonElement>("#restoreDemo");
+const filePickerEl = mustQuery<HTMLInputElement>("#filePicker");
 const themeToggleEl = mustQuery<HTMLButtonElement>("#themeToggle");
 const explodeRangeEl = mustQuery<HTMLInputElement>("#explodeRange");
 const explodeValueEl = mustQuery<HTMLOutputElement>("#explodeValue");
@@ -123,6 +135,7 @@ const focusSelectedEl = mustQuery<HTMLButtonElement>("#focusSelected");
 const isolateSelectedEl = mustQuery<HTMLButtonElement>("#isolateSelected");
 const showAllPartsEl = mustQuery<HTMLButtonElement>("#showAllParts");
 const partListEl = mustQuery<HTMLElement>("#partList");
+const assemblyCountEl = mustQuery<HTMLElement>("#assemblyCount");
 const selectedNameEl = mustQuery<HTMLElement>("#selectedName");
 const selectedMetricsEl = mustQuery<HTMLElement>("#selectedMetrics");
 
@@ -220,13 +233,16 @@ let wireframeEnabled = false;
 let xrayEnabled = false;
 let dragStart: { x: number; y: number } | null = null;
 let isolated = false;
+let activeAssemblyLabel = "Demo assembly";
+let cameraTarget = new THREE.Vector3(0, 0, 15);
+let assemblyViewDistance = 150;
 
 addLights();
 bindControls();
 applyTheme(theme);
 resize();
 
-loadAssembly().catch((error: unknown) => {
+loadAssembly(demoParts, "Demo assembly").catch((error: unknown) => {
   console.error(error);
   updateStatus("Failed to load geometry");
 });
@@ -298,11 +314,13 @@ function createMaterial(part: PartDefinition): THREE.MeshStandardMaterial {
   });
 }
 
-async function loadAssembly(): Promise<void> {
+async function loadAssembly(parts: PartDefinition[], label: string): Promise<void> {
+  clearAssembly();
+  activeAssemblyLabel = label;
   updateStatus(`Loading 0 / ${parts.length}`);
 
   for (const [index, part] of parts.entries()) {
-    const geometry = await loader.loadAsync(part.file);
+    const geometry = await loadGeometry(part);
     geometry.computeVertexNormals();
     geometry.computeBoundingBox();
 
@@ -340,6 +358,8 @@ async function loadAssembly(): Promise<void> {
   assembly.position.sub(center);
   assembly.position.z += rawBounds.getSize(new THREE.Vector3()).z / 2;
   assemblyBounds = new THREE.Box3().setFromObject(assembly);
+  cameraTarget = assemblyBounds.getCenter(new THREE.Vector3());
+  assemblyViewDistance = Math.max(assemblyBounds.getSize(new THREE.Vector3()).length() * 1.4, 80);
 
   configureSectionRange();
   buildPartToggles();
@@ -347,6 +367,36 @@ async function loadAssembly(): Promise<void> {
   setView("iso");
   updateModelMetrics();
   updateStatus("Ready");
+}
+
+async function loadGeometry(part: PartDefinition): Promise<THREE.BufferGeometry> {
+  if (typeof part.source === "string") {
+    return loader.loadAsync(part.source);
+  }
+
+  return loader.parse(part.source.slice(0));
+}
+
+function clearAssembly(): void {
+  selectedPart = null;
+  isolated = false;
+  isolateSelectedEl.textContent = "Isolate";
+  selectionBox.visible = false;
+  partListEl.replaceChildren();
+  selectedNameEl.textContent = "No selection";
+  selectedMetricsEl.innerHTML = metricHtml([["Selection", "Click a part"]]);
+
+  for (const part of loadedParts.splice(0)) {
+    part.mesh.remove(part.edges);
+    part.mesh.geometry.dispose();
+    part.edges.geometry.dispose();
+    part.edges.material.dispose();
+    part.mesh.material.dispose();
+    assembly.remove(part.mesh);
+  }
+
+  assembly.rotation.set(0, 0, 0);
+  assembly.position.set(0, 0, 0);
 }
 
 function edgeColor(color: number): number {
@@ -370,7 +420,9 @@ function configureSectionRange(): void {
 function updateModelMetrics(): void {
   const size = assemblyBounds.getSize(new THREE.Vector3());
   const triangles = loadedParts.reduce((total, part) => total + part.triangles, 0);
-  modelMetricsEl.textContent = `${fmt(size.x)} x ${fmt(size.y)} x ${fmt(size.z)} mm | ${loadedParts.length} parts | ${triangles.toLocaleString()} tris`;
+  const partLabel = loadedParts.length === 1 ? "part" : "parts";
+  assemblyCountEl.textContent = `${loadedParts.length} ${partLabel}`;
+  modelMetricsEl.textContent = `${activeAssemblyLabel} | ${fmt(size.x)} x ${fmt(size.y)} x ${fmt(size.z)} mm | ${loadedParts.length} ${partLabel} | ${triangles.toLocaleString()} tris`;
 }
 
 function buildPartToggles(): void {
@@ -409,6 +461,14 @@ function buildPartToggles(): void {
 }
 
 function bindControls(): void {
+  uploadTriggerEl.addEventListener("click", () => filePickerEl.click());
+  restoreDemoEl.addEventListener("click", () => {
+    loadAssembly(demoParts, "Demo assembly").catch(handleLoadError);
+  });
+  filePickerEl.addEventListener("change", () => {
+    void loadFilesFromPicker(filePickerEl.files);
+  });
+
   themeToggleEl.addEventListener("click", () => {
     applyTheme(theme === "dark" ? "light" : "dark");
   });
@@ -494,7 +554,99 @@ function bindControls(): void {
     if (moved < 4) pickPart(event);
   });
 
+  window.addEventListener("dragover", (event) => {
+    if (!hasStlFiles(event.dataTransfer)) return;
+    event.preventDefault();
+  });
+
+  window.addEventListener("drop", (event) => {
+    if (!hasStlFiles(event.dataTransfer)) return;
+    event.preventDefault();
+    void loadFilesFromPicker(event.dataTransfer?.files ?? null);
+  });
+
   window.addEventListener("resize", resize);
+}
+
+async function loadFilesFromPicker(files: FileList | null): Promise<void> {
+  if (!files?.length) return;
+
+  const stlFiles = Array.from(files).filter((file) => file.name.toLowerCase().endsWith(".stl"));
+  filePickerEl.value = "";
+  if (!stlFiles.length) {
+    updateStatus("No STL files selected");
+    return;
+  }
+
+  try {
+    const uploadedParts = await buildUploadedParts(stlFiles);
+    await loadAssembly(uploadedParts, "Uploaded assembly");
+  } catch (error: unknown) {
+    handleLoadError(error);
+  }
+}
+
+async function buildUploadedParts(files: File[]): Promise<PartDefinition[]> {
+  const knownParts = new Map(demoParts.map((part) => [part.fileName.toLowerCase(), part]));
+  const sortedFiles = files.slice().sort((left, right) => {
+    const leftIndex = demoParts.findIndex((part) => part.fileName.toLowerCase() === left.name.toLowerCase());
+    const rightIndex = demoParts.findIndex((part) => part.fileName.toLowerCase() === right.name.toLowerCase());
+    return normalizeSortIndex(leftIndex, left.name).localeCompare(normalizeSortIndex(rightIndex, right.name));
+  });
+
+  return Promise.all(sortedFiles.map(async (file, index) => {
+    const template = knownParts.get(file.name.toLowerCase());
+    const buffer = await file.arrayBuffer();
+    return {
+      id: template?.id ?? slugify(file.name, index),
+      label: template?.label ?? labelFromFileName(file.name),
+      fileName: file.name,
+      source: buffer,
+      color: template?.color ?? fallbackColor(index),
+      metalness: template?.metalness,
+      roughness: template?.roughness ?? 0.48,
+      explode: template?.explode ?? fallbackExplode(index),
+    };
+  }));
+}
+
+function normalizeSortIndex(index: number, fileName: string): string {
+  const paddedIndex = index >= 0 ? index.toString().padStart(4, "0") : "9999";
+  return `${paddedIndex}:${fileName.toLowerCase()}`;
+}
+
+function fallbackExplode(index: number): THREE.Vector3Tuple {
+  const ring = Math.floor(index / 6) + 1;
+  const angle = (index % 6) * (Math.PI / 3);
+  return [Math.cos(angle) * 7 * ring, Math.sin(angle) * 7 * ring, 5 + ring * 4];
+}
+
+function fallbackColor(index: number): number {
+  const palette = [0x3a4348, 0x8a5c34, 0x2d8a57, 0x3266d6, 0xc07b28, 0x6f566a];
+  return palette[index % palette.length];
+}
+
+function labelFromFileName(fileName: string): string {
+  return fileName
+    .replace(/\.stl$/i, "")
+    .replace(/^concept_puck_v3_/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function slugify(fileName: string, index: number): string {
+  const base = fileName.toLowerCase().replace(/\.stl$/i, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return base || `part-${index + 1}`;
+}
+
+function hasStlFiles(dataTransfer: DataTransfer | null): boolean {
+  if (!dataTransfer?.files?.length) return false;
+  return Array.from(dataTransfer.files).some((file) => file.name.toLowerCase().endsWith(".stl"));
+}
+
+function handleLoadError(error: unknown): void {
+  console.error(error);
+  updateStatus("Failed to load geometry");
 }
 
 function updateExplodeUi(): void {
@@ -640,21 +792,21 @@ function setView(view: ViewPreset): void {
     button.setAttribute("aria-pressed", String(button.dataset.view === view));
   });
 
-  const target = new THREE.Vector3(0, 0, 15);
-  const distance = 150;
+  const target = cameraTarget.clone();
+  const distance = assemblyViewDistance;
   const positions: Record<ViewPreset, THREE.Vector3> = {
-    iso: new THREE.Vector3(104, -130, 82),
+    iso: new THREE.Vector3(distance * 0.72, -distance * 0.9, distance * 0.56),
     top: new THREE.Vector3(0.01, -0.01, distance),
-    front: new THREE.Vector3(0, -distance, 28),
-    right: new THREE.Vector3(distance, 0, 28),
-    left: new THREE.Vector3(-distance, 0, 28),
+    front: new THREE.Vector3(0, -distance, distance * 0.19),
+    right: new THREE.Vector3(distance, 0, distance * 0.19),
+    left: new THREE.Vector3(-distance, 0, distance * 0.19),
     bottom: new THREE.Vector3(0.01, -0.01, -distance),
   };
 
   controls.target.copy(target);
-  camera.position.copy(positions[view]);
+  camera.position.copy(target).add(positions[view]);
   camera.near = 0.1;
-  camera.far = 1000;
+  camera.far = Math.max(1000, distance * 12);
   camera.updateProjectionMatrix();
   controls.update();
 }
