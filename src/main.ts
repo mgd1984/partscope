@@ -6,6 +6,7 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 
 type ImportFormat = "stl" | "obj" | "ply" | "glb" | "gltf" | "3mf";
 type ExportFormat = "stl" | "obj" | "ply" | "glb";
+type SourceUnit = "mm" | "cm" | "m" | "in" | "custom";
 
 type PartDefinition = {
   id: string;
@@ -152,6 +153,10 @@ const sidecarMinimizeEl = mustQuery<HTMLButtonElement>("#sidecarMinimize");
 const dropOverlayEl = mustQuery<HTMLElement>("#dropOverlay");
 const importFormatEl = mustQuery<HTMLElement>("#importFormat");
 const exportFormatEl = mustQuery<HTMLSelectElement>("#exportFormat");
+const sourceUnitEl = mustQuery<HTMLSelectElement>("#sourceUnit");
+const scaleFactorEl = mustQuery<HTMLInputElement>("#scaleFactor");
+const scaleReadoutEl = mustQuery<HTMLElement>("#scaleReadout");
+const resetScaleEl = mustQuery<HTMLButtonElement>("#resetScale");
 const exportAssemblyEl = mustQuery<HTMLButtonElement>("#exportAssembly");
 const exportSelectedEl = mustQuery<HTMLButtonElement>("#exportSelected");
 const layerHeightEl = mustQuery<HTMLInputElement>("#layerHeight");
@@ -252,6 +257,7 @@ const loadedParts: LoadedPart[] = [];
 const EXPLODE_VERTICAL_GAP = 8;
 
 let assemblyBounds = new THREE.Box3();
+let sectionBounds = new THREE.Box3();
 let selectedPart: LoadedPart | null = null;
 let explodeTarget = 0;
 let explodeValue = 0;
@@ -267,6 +273,8 @@ let isolated = false;
 let activeAssemblyLabel = "Demo assembly";
 let cameraTarget = new THREE.Vector3(0, 0, 15);
 let assemblyViewDistance = 150;
+let assemblyScaleFactor = 1;
+let scaleControlsLocked = false;
 let dragDepth = 0;
 let slicerEnabled = false;
 let sliceSegments: Array<[THREE.Vector3, THREE.Vector3]> = [];
@@ -274,6 +282,12 @@ let sliceLayerZ = 0;
 
 const importFormats: ImportFormat[] = ["stl", "obj", "ply", "glb", "gltf", "3mf"];
 const exportFormats: ExportFormat[] = ["stl", "obj", "ply", "glb"];
+const unitScaleToMm: Record<Exclude<SourceUnit, "custom">, number> = {
+  mm: 1,
+  cm: 10,
+  m: 1000,
+  in: 25.4,
+};
 const slicePreviewGroup = new THREE.Group();
 assembly.add(slicePreviewGroup);
 
@@ -368,62 +382,60 @@ function createMaterial(part: PartDefinition): THREE.MeshStandardMaterial {
 
 async function loadAssembly(parts: PartDefinition[], label: string): Promise<void> {
   clearAssembly();
+  setScaleControlsLocked(true);
+  resetScaleControls();
   activeAssemblyLabel = label;
   updateStatus(`Loading 0 / ${parts.length}`);
 
-  for (const [index, part] of parts.entries()) {
-    const geometry = await loadGeometry(part);
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
+  try {
+    for (const [index, part] of parts.entries()) {
+      const geometry = await loadGeometry(part);
+      geometry.computeVertexNormals();
+      geometry.computeBoundingBox();
 
-    const material = createMaterial(part);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = part.id;
+      const material = createMaterial(part);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.name = part.id;
 
-    const edgeGeometry = new THREE.EdgesGeometry(geometry, 28);
-    const edgeMaterial = new THREE.LineBasicMaterial({
-      color: edgeColor(part.color),
-      transparent: true,
-      opacity: 0.42,
-      depthTest: true,
-    });
-    const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-    edges.name = `${part.id}-edges`;
-    mesh.add(edges);
+      const edgeGeometry = new THREE.EdgesGeometry(geometry, 28);
+      const edgeMaterial = new THREE.LineBasicMaterial({
+        color: edgeColor(part.color),
+        transparent: true,
+        opacity: 0.42,
+        depthTest: true,
+      });
+      const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+      edges.name = `${part.id}-edges`;
+      mesh.add(edges);
 
-    const triangles = Math.floor(geometry.attributes.position.count / 3);
-    const localBounds = geometry.boundingBox?.clone() ?? new THREE.Box3();
-    assembly.add(mesh);
-    loadedParts.push({
-      definition: part,
-      mesh,
-      edges,
-      assembled: mesh.position.clone(),
-      explodeOffset: new THREE.Vector3(),
-      localBounds,
-      triangles,
-    });
-    updateStatus(`Loading ${index + 1} / ${parts.length}`);
+      const triangles = Math.floor(geometry.attributes.position.count / 3);
+      const localBounds = geometry.boundingBox?.clone() ?? new THREE.Box3();
+      assembly.add(mesh);
+      loadedParts.push({
+        definition: part,
+        mesh,
+        edges,
+        assembled: mesh.position.clone(),
+        explodeOffset: new THREE.Vector3(),
+        localBounds,
+        triangles,
+      });
+      updateStatus(`Loading ${index + 1} / ${parts.length}`);
+    }
+
+    refreshAssemblyLayout();
+
+    configureSectionRange();
+    configureSlicer();
+    buildPartToggles();
+    selectPart(loadedParts.find((part) => part.definition.id === "top") ?? loadedParts[0] ?? null);
+    setView("iso");
+    updateModelMetrics();
+    updateFormatReadout();
+    updateStatus("Ready");
+  } finally {
+    setScaleControlsLocked(false);
   }
-
-  configureExplodeOffsets();
-
-  const rawBounds = new THREE.Box3().setFromObject(assembly);
-  const center = rawBounds.getCenter(new THREE.Vector3());
-  assembly.position.sub(center);
-  assembly.position.z += rawBounds.getSize(new THREE.Vector3()).z / 2;
-  assemblyBounds = new THREE.Box3().setFromObject(assembly);
-  cameraTarget = assemblyBounds.getCenter(new THREE.Vector3());
-  assemblyViewDistance = Math.max(assemblyBounds.getSize(new THREE.Vector3()).length() * 1.4, 80);
-
-  configureSectionRange();
-  configureSlicer();
-  buildPartToggles();
-  selectPart(loadedParts.find((part) => part.definition.id === "top") ?? loadedParts[0] ?? null);
-  setView("iso");
-  updateModelMetrics();
-  updateFormatReadout();
-  updateStatus("Ready");
 }
 
 async function loadGeometry(part: PartDefinition): Promise<THREE.BufferGeometry> {
@@ -508,6 +520,129 @@ function clearAssembly(): void {
   assembly.position.set(0, 0, 0);
 }
 
+function resetScaleControls(): void {
+  assemblyScaleFactor = 1;
+  sourceUnitEl.value = "mm";
+  scaleFactorEl.value = "1";
+  updateScaleReadout();
+}
+
+function setScaleControlsLocked(locked: boolean): void {
+  scaleControlsLocked = locked;
+  sourceUnitEl.disabled = locked;
+  scaleFactorEl.disabled = locked;
+  updateScaleReadout();
+}
+
+function setAssemblyScale(factor: number, options: { syncInput?: boolean; reframe?: boolean } = {}): void {
+  if (scaleControlsLocked) return;
+  if (!Number.isFinite(factor) || factor <= 0) {
+    scaleReadoutEl.textContent = "Enter a positive scale";
+    return;
+  }
+
+  const nextScale = clamp(factor, 0.000001, 1000000);
+  const ratio = nextScale / assemblyScaleFactor;
+  if (options.syncInput !== false) scaleFactorEl.value = formatScaleInput(nextScale);
+
+  if (Math.abs(ratio - 1) <= 0.0000001) {
+    updateScaleReadout();
+    return;
+  }
+
+  const currentSectionValue = Number(sectionRangeEl.value);
+  if (Number.isFinite(currentSectionValue)) {
+    sectionRangeEl.value = (currentSectionValue * ratio).toFixed(3);
+  }
+
+  scaleLoadedGeometry(ratio);
+  assemblyScaleFactor = nextScale;
+  refreshAssemblyLayout();
+  syncSectionRange(false);
+  configureSlicer();
+  updateModelMetrics();
+  if (selectedPart) selectPart(selectedPart);
+  updateScaleReadout();
+  updateStatus(`Scale ${formatScale(nextScale)}x`);
+  if (options.reframe !== false) setView("iso");
+}
+
+function scaleLoadedGeometry(ratio: number): void {
+  const scaleMatrix = new THREE.Matrix4().makeScale(ratio, ratio, ratio);
+  for (const part of loadedParts) {
+    part.mesh.position.copy(part.assembled);
+    part.mesh.geometry.applyMatrix4(scaleMatrix);
+    part.mesh.geometry.computeBoundingBox();
+    part.mesh.geometry.computeBoundingSphere();
+    part.localBounds.copy(part.mesh.geometry.boundingBox ?? new THREE.Box3());
+    part.edges.geometry.applyMatrix4(scaleMatrix);
+    part.edges.geometry.computeBoundingSphere();
+  }
+}
+
+function refreshAssemblyLayout(): void {
+  for (const part of loadedParts) {
+    part.mesh.position.copy(part.assembled);
+  }
+
+  configureExplodeOffsets();
+  assembly.position.set(0, 0, 0);
+
+  const rawBounds = measureAssemblyBounds();
+  if (rawBounds.isEmpty()) {
+    assemblyBounds.makeEmpty();
+    sectionBounds.makeEmpty();
+    cameraTarget.set(0, 0, 0);
+    assemblyViewDistance = 80;
+    updateCameraControlLimits();
+    return;
+  }
+
+  const rawSize = rawBounds.getSize(new THREE.Vector3());
+  const center = rawBounds.getCenter(new THREE.Vector3());
+  assembly.position.sub(center);
+  assembly.position.z += rawSize.z / 2;
+
+  assemblyBounds = measureAssemblyBounds();
+  sectionBounds.copy(assemblyBounds);
+  const size = assemblyBounds.getSize(new THREE.Vector3());
+  const extent = Math.max(size.x, size.y, size.z, 1);
+  cameraTarget = assemblyBounds.getCenter(new THREE.Vector3());
+  assemblyViewDistance = Math.max(size.length() * 1.4, extent * 2.2, 8);
+  updateCameraControlLimits();
+  updateReferenceScale(size);
+  applyExplode(explodeValue);
+}
+
+function updateCameraControlLimits(): void {
+  const size = assemblyBounds.getSize(new THREE.Vector3());
+  const radius = Math.max(size.length() / 2, 1);
+  controls.minDistance = Math.max(radius / 200, 0.01);
+  controls.maxDistance = Math.max(radius * 14, 260);
+}
+
+function updateReferenceScale(size: THREE.Vector3): void {
+  const extent = Math.max(size.x, size.y, size.z, 1);
+  gridGroup.scale.setScalar(clamp(extent / 80, 0.02, 10000));
+}
+
+function measureAssemblyBounds(): THREE.Box3 {
+  const selectionParent = selectionBox.parent;
+  const sliceParent = slicePreviewGroup.parent;
+  const rotation = assembly.rotation.clone();
+  selectionBox.removeFromParent();
+  slicePreviewGroup.removeFromParent();
+  assembly.rotation.set(0, 0, 0);
+
+  try {
+    return new THREE.Box3().setFromObject(assembly);
+  } finally {
+    assembly.rotation.copy(rotation);
+    if (sliceParent) sliceParent.add(slicePreviewGroup);
+    if (selectionParent) selectionParent.add(selectionBox);
+  }
+}
+
 function edgeColor(color: number): number {
   const c = new THREE.Color(color);
   c.offsetHSL(0, -0.18, c.getHSL({ h: 0, s: 0, l: 0 }).l > 0.55 ? -0.28 : 0.32);
@@ -515,11 +650,22 @@ function edgeColor(color: number): number {
 }
 
 function configureSectionRange(): void {
+  updateSectionBounds();
+  syncSectionRange(true);
+}
+
+function syncSectionRange(resetValue: boolean): void {
   const axisBounds = getAxisBounds(sectionAxis);
   const padding = 3;
-  sectionRangeEl.min = Math.floor(axisBounds.min - padding).toString();
-  sectionRangeEl.max = Math.ceil(axisBounds.max + padding).toString();
-  sectionRangeEl.value = (axisBounds.max + padding).toFixed(1);
+  const min = Math.floor(axisBounds.min - padding);
+  const max = Math.ceil(axisBounds.max + padding);
+  const currentValue = Number(sectionRangeEl.value);
+
+  sectionRangeEl.min = min.toString();
+  sectionRangeEl.max = max.toString();
+  sectionRangeEl.value = (resetValue || !Number.isFinite(currentValue))
+    ? max.toFixed(1)
+    : clamp(currentValue, min, max).toFixed(1);
   sectionAxisLabelEl.textContent = `Cut ${sectionAxis.toUpperCase()}`;
   sectionValueEl.textContent = sectionEnabled ? `${Number(sectionRangeEl.value).toFixed(1)} mm` : "off";
   updateSectionAxisButtons();
@@ -531,7 +677,7 @@ function updateModelMetrics(): void {
   const triangles = loadedParts.reduce((total, part) => total + part.triangles, 0);
   const partLabel = loadedParts.length === 1 ? "part" : "parts";
   assemblyCountEl.textContent = `${loadedParts.length} ${partLabel}`;
-  modelMetricsEl.textContent = `${activeAssemblyLabel} | ${fmt(size.x)} x ${fmt(size.y)} x ${fmt(size.z)} mm | ${loadedParts.length} ${partLabel} | ${triangles.toLocaleString()} tris`;
+  modelMetricsEl.textContent = `${activeAssemblyLabel} | ${fmt(size.x)} x ${fmt(size.y)} x ${fmt(size.z)} mm | ${formatScale(assemblyScaleFactor)}x | ${loadedParts.length} ${partLabel} | ${triangles.toLocaleString()} tris`;
 }
 
 function buildPartToggles(): void {
@@ -655,6 +801,25 @@ function bindControls(): void {
   focusSelectedEl.addEventListener("click", () => selectedPart && framePart(selectedPart));
   isolateSelectedEl.addEventListener("click", toggleIsolateSelected);
   showAllPartsEl.addEventListener("click", showAllParts);
+  sourceUnitEl.addEventListener("change", () => {
+    const unit = sourceUnitEl.value as SourceUnit;
+    if (unit === "custom") return;
+    setAssemblyScale(unitScaleToMm[unit], { syncInput: true });
+  });
+  scaleFactorEl.addEventListener("input", () => {
+    sourceUnitEl.value = "custom";
+    setAssemblyScale(Number(scaleFactorEl.value), { syncInput: false });
+  });
+  scaleFactorEl.addEventListener("blur", () => {
+    if (!Number.isFinite(Number(scaleFactorEl.value)) || Number(scaleFactorEl.value) <= 0) {
+      scaleFactorEl.value = formatScaleInput(assemblyScaleFactor);
+      updateScaleReadout();
+    }
+  });
+  resetScaleEl.addEventListener("click", () => {
+    sourceUnitEl.value = "mm";
+    setAssemblyScale(1, { syncInput: true });
+  });
   exportAssemblyEl.addEventListener("click", () => void exportModel(false));
   exportSelectedEl.addEventListener("click", () => void exportModel(true));
 
@@ -972,6 +1137,8 @@ function applyExplode(value: number): void {
     const offset = part.explodeOffset.clone().multiplyScalar(value);
     part.mesh.position.copy(part.assembled).add(offset);
   }
+  updateSectionBounds();
+  syncSectionRange(false);
   updateSelectionBox();
 }
 
@@ -999,9 +1166,18 @@ function getSectionNormal(axis: SectionAxis): THREE.Vector3 {
 }
 
 function getAxisBounds(axis: SectionAxis): { min: number; max: number } {
-  if (axis === "x") return { min: assemblyBounds.min.x, max: assemblyBounds.max.x };
-  if (axis === "y") return { min: assemblyBounds.min.y, max: assemblyBounds.max.y };
-  return { min: assemblyBounds.min.z, max: assemblyBounds.max.z };
+  if (axis === "x") return { min: sectionBounds.min.x, max: sectionBounds.max.x };
+  if (axis === "y") return { min: sectionBounds.min.y, max: sectionBounds.max.y };
+  return { min: sectionBounds.min.z, max: sectionBounds.max.z };
+}
+
+function updateSectionBounds(): void {
+  if (!loadedParts.length) {
+    sectionBounds.makeEmpty();
+    return;
+  }
+
+  sectionBounds.copy(measureAssemblyBounds());
 }
 
 function updateSectionAxisButtons(): void {
@@ -1635,6 +1811,29 @@ function resize(): void {
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+}
+
+function updateScaleReadout(): void {
+  scaleReadoutEl.textContent = `1 unit = ${formatScale(assemblyScaleFactor)} mm`;
+  resetScaleEl.disabled = scaleControlsLocked || loadedParts.length === 0 || Math.abs(assemblyScaleFactor - 1) <= 0.0000001;
+}
+
+function formatScaleInput(value: number): string {
+  if (value >= 1000 || value < 0.001) return Number(value.toPrecision(6)).toString();
+  return Number(value.toFixed(6)).toString();
+}
+
+function formatScale(value: number): string {
+  if (value >= 1000) {
+    return value.toLocaleString(undefined, { maximumFractionDigits: 3 });
+  }
+  if (value >= 1) {
+    return Number(value.toFixed(4)).toString();
+  }
+  if (value >= 0.001) {
+    return Number(value.toFixed(6)).toString();
+  }
+  return value.toExponential(2);
 }
 
 function fmt(value: number): string {
