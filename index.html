@@ -169,6 +169,24 @@
           </summary>
           <div class="io-panel">
             <p id="importFormat" class="microcopy">Import: STL, OBJ, PLY, GLB, GLTF, 3MF</p>
+            <label class="select-row" for="sourceUnit">
+              <span>Source</span>
+              <select id="sourceUnit">
+                <option value="mm">Millimeters</option>
+                <option value="cm">Centimeters</option>
+                <option value="m">Meters</option>
+                <option value="in">Inches</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <label class="number-row" for="scaleFactor">
+              <span>Scale</span>
+              <input id="scaleFactor" type="number" min="0.000001" max="1000000" value="1" step="0.001" inputmode="decimal" />
+            </label>
+            <div class="dual-actions secondary-actions">
+              <button id="resetScale" type="button"><span>Reset 1x</span></button>
+              <p id="scaleReadout" class="microcopy scale-readout">1 unit = 1 mm</p>
+            </div>
             <label class="select-row" for="exportFormat">
               <span>Export</span>
               <select id="exportFormat">

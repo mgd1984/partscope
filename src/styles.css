@@ -772,6 +772,32 @@ input[type="range"]:disabled {
   font-weight: 650;
 }
 
+.number-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.number-row input {
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--ink);
+  font: inherit;
+  font-family: ui-monospace, "SFMono-Regular", "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 690;
+  padding: 0 9px;
+}
+
 .dual-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -792,6 +818,16 @@ input[type="range"]:disabled {
 
 .secondary-actions {
   margin-top: 6px;
+}
+
+.scale-readout {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dual-actions button[aria-pressed="true"] {
