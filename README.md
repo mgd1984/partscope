@@ -1,11 +1,10 @@
 # PartScope
 
 PartScope is a small Three.js viewer for reviewing mechanical assemblies in the browser.
-It is built for the tight loop: open the model, inspect the stack, cut a section, isolate a part, export what you need, move on.
 
 ![PartScope overview](.github/screenshots/partscope-overview.png)
 
-## Why It Exists
+## Why
 
 Most CAD review tools are either too heavy, too closed, or too tied to a larger system.
 PartScope keeps the job narrow:
