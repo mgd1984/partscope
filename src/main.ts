@@ -2,6 +2,7 @@ import "./styles.css";
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 
 type ImportFormat = "stl" | "obj" | "ply" | "glb" | "gltf" | "3mf";
@@ -12,6 +13,7 @@ type PartDefinition = {
   id: string;
   label: string;
   source: string | ArrayBuffer;
+  sourceFiles?: SourceFile[];
   fileName: string;
   format?: ImportFormat;
   color: number;
@@ -20,10 +22,37 @@ type PartDefinition = {
   explode: THREE.Vector3Tuple;
 };
 
+type SourceFile = {
+  name: string;
+  buffer: ArrayBuffer;
+  type: string;
+};
+
+type RenderableMesh = THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]>;
+
+type MaterialState = {
+  opacity: number;
+  transparent: boolean;
+  depthWrite: boolean;
+  clippingPlanes: THREE.Plane[] | null;
+  wireframe?: boolean;
+};
+
+type LoadedPartModel = {
+  root: THREE.Object3D;
+  renderMeshes: RenderableMesh[];
+  edgeLines: THREE.LineSegments[];
+  materialStates: Map<THREE.Material, MaterialState>;
+  localBounds: THREE.Box3;
+  triangles: number;
+};
+
 type LoadedPart = {
   definition: PartDefinition;
-  mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
-  edges: THREE.LineSegments;
+  mesh: THREE.Object3D;
+  renderMeshes: RenderableMesh[];
+  edgeLines: THREE.LineSegments[];
+  materialStates: Map<THREE.Material, MaterialState>;
   assembled: THREE.Vector3;
   explodeOffset: THREE.Vector3;
   localBounds: THREE.Box3;
@@ -33,6 +62,20 @@ type LoadedPart = {
 type ViewPreset = "iso" | "top" | "front" | "right" | "left" | "bottom";
 type SectionAxis = "x" | "y" | "z";
 type ThemeName = "light" | "dark";
+type TransformMode = "translate" | "rotate" | "scale";
+type TransformSpace = "world" | "local";
+
+type PartTransformState = {
+  partId: string;
+  assembled: THREE.Vector3;
+  rotation: THREE.Euler;
+  scale: THREE.Vector3;
+};
+
+type TransformHistoryEntry = {
+  before: PartTransformState[];
+  after: PartTransformState[];
+};
 
 const demoParts: PartDefinition[] = [
   {
@@ -145,6 +188,12 @@ const partListEl = mustQuery<HTMLElement>("#partList");
 const assemblyCountEl = mustQuery<HTMLElement>("#assemblyCount");
 const selectedNameEl = mustQuery<HTMLElement>("#selectedName");
 const selectedMetricsEl = mustQuery<HTMLElement>("#selectedMetrics");
+const undoTransformEl = mustQuery<HTMLButtonElement>("#undoTransform");
+const redoTransformEl = mustQuery<HTMLButtonElement>("#redoTransform");
+const toggleTransformSpaceEl = mustQuery<HTMLButtonElement>("#toggleTransformSpace");
+const toggleTransformSnapEl = mustQuery<HTMLButtonElement>("#toggleTransformSnap");
+const resetTransformEl = mustQuery<HTMLButtonElement>("#resetTransform");
+const resetAllTransformsEl = mustQuery<HTMLButtonElement>("#resetAllTransforms");
 const footerControlsEl = mustQuery<HTMLElement>("#footerControls");
 const sidecarEl = mustQuery<HTMLElement>("#sidecar");
 const sidecarGripEl = mustQuery<HTMLElement>("#sidecarGrip");
@@ -215,6 +264,12 @@ controls.minDistance = 35;
 controls.maxDistance = 260;
 controls.target.set(0, 0, 15);
 
+const transformControls = new TransformControls(camera, renderer.domElement);
+transformControls.setMode("translate");
+transformControls.setSpace("world");
+transformControls.setSize(0.78);
+scene.add(transformControls.getHelper());
+
 const assembly = new THREE.Group();
 scene.add(assembly);
 
@@ -275,6 +330,13 @@ let cameraTarget = new THREE.Vector3(0, 0, 15);
 let assemblyViewDistance = 150;
 let assemblyScaleFactor = 1;
 let scaleControlsLocked = false;
+let transformMode: TransformMode = "translate";
+let transformSpace: TransformSpace = "world";
+let transformSnapEnabled = false;
+let transformDragging = false;
+let activeTransformStart: PartTransformState[] | null = null;
+const undoStack: TransformHistoryEntry[] = [];
+const redoStack: TransformHistoryEntry[] = [];
 let dragDepth = 0;
 let slicerEnabled = false;
 let sliceSegments: Array<[THREE.Vector3, THREE.Vector3]> = [];
@@ -370,9 +432,11 @@ function makeAxis(length: number, color: number, direction: THREE.Vector3): THRE
   return new THREE.ArrowHelper(direction, new THREE.Vector3(0, 0, 0.12), length, color, 5, 2.2);
 }
 
-function createMaterial(part: PartDefinition): THREE.MeshStandardMaterial {
+function createMaterial(part: PartDefinition, geometry?: THREE.BufferGeometry): THREE.MeshStandardMaterial {
+  const hasVertexColors = Boolean(geometry?.getAttribute("color"));
   return new THREE.MeshStandardMaterial({
-    color: part.color,
+    color: hasVertexColors ? 0xffffff : part.color,
+    vertexColors: hasVertexColors,
     metalness: part.metalness ?? 0,
     roughness: part.roughness ?? 0.55,
     side: THREE.DoubleSide,
@@ -382,6 +446,7 @@ function createMaterial(part: PartDefinition): THREE.MeshStandardMaterial {
 
 async function loadAssembly(parts: PartDefinition[], label: string): Promise<void> {
   clearAssembly();
+  clearTransformHistory();
   setScaleControlsLocked(true);
   resetScaleControls();
   activeAssemblyLabel = label;
@@ -389,36 +454,19 @@ async function loadAssembly(parts: PartDefinition[], label: string): Promise<voi
 
   try {
     for (const [index, part] of parts.entries()) {
-      const geometry = await loadGeometry(part);
-      geometry.computeVertexNormals();
-      geometry.computeBoundingBox();
-
-      const material = createMaterial(part);
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.name = part.id;
-
-      const edgeGeometry = new THREE.EdgesGeometry(geometry, 28);
-      const edgeMaterial = new THREE.LineBasicMaterial({
-        color: edgeColor(part.color),
-        transparent: true,
-        opacity: 0.42,
-        depthTest: true,
-      });
-      const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-      edges.name = `${part.id}-edges`;
-      mesh.add(edges);
-
-      const triangles = Math.floor(geometry.attributes.position.count / 3);
-      const localBounds = geometry.boundingBox?.clone() ?? new THREE.Box3();
-      assembly.add(mesh);
+      const model = await loadPartModel(part);
+      model.root.name = part.id;
+      assembly.add(model.root);
       loadedParts.push({
         definition: part,
-        mesh,
-        edges,
-        assembled: mesh.position.clone(),
+        mesh: model.root,
+        renderMeshes: model.renderMeshes,
+        edgeLines: model.edgeLines,
+        materialStates: model.materialStates,
+        assembled: model.root.position.clone(),
         explodeOffset: new THREE.Vector3(),
-        localBounds,
-        triangles,
+        localBounds: model.localBounds,
+        triangles: model.triangles,
       });
       updateStatus(`Loading ${index + 1} / ${parts.length}`);
     }
@@ -438,66 +486,188 @@ async function loadAssembly(parts: PartDefinition[], label: string): Promise<voi
   }
 }
 
-async function loadGeometry(part: PartDefinition): Promise<THREE.BufferGeometry> {
+async function loadPartModel(part: PartDefinition): Promise<LoadedPartModel> {
   if (typeof part.source === "string") {
-    return stlLoader.loadAsync(part.source);
+    const geometry = await stlLoader.loadAsync(part.source);
+    return modelFromGeometry(part, geometry);
   }
 
   const format = part.format ?? extensionFor(part.fileName);
-  return loadGeometryFromBuffer(part.source.slice(0), format, part.fileName);
-}
-
-async function loadGeometryFromBuffer(buffer: ArrayBuffer, format: ImportFormat, fileName: string): Promise<THREE.BufferGeometry> {
-  if (format === "stl") return stlLoader.parse(buffer);
+  if (format === "stl") return modelFromGeometry(part, stlLoader.parse(part.source.slice(0)));
   if (format === "ply") {
     const { PLYLoader } = await import("three/addons/loaders/PLYLoader.js");
-    return new PLYLoader().parse(buffer);
+    return modelFromGeometry(part, new PLYLoader().parse(part.source.slice(0)));
   }
-  if (format === "obj") {
-    const { OBJLoader } = await import("three/addons/loaders/OBJLoader.js");
-    const object = new OBJLoader().parse(new TextDecoder().decode(buffer));
-    return mergedGeometryFromObject(object, fileName);
-  }
-  if (format === "glb" || format === "gltf") {
-    const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
-    const gltfLoader = new GLTFLoader();
-    const gltf = await new Promise<{ scene: THREE.Object3D }>((resolve, reject) => {
-      gltfLoader.parse(buffer, "", resolve, reject);
-    });
-    return mergedGeometryFromObject(gltf.scene, fileName);
-  }
-  if (format === "3mf") {
-    const { ThreeMFLoader } = await import("three/addons/loaders/3MFLoader.js");
-    return mergedGeometryFromObject(new ThreeMFLoader().parse(buffer), fileName);
-  }
-
-  throw new Error(`Unsupported import format: ${format}`);
+  return loadSceneModelFromBuffer(part.source.slice(0), format, part);
 }
 
-async function mergedGeometryFromObject(object: THREE.Object3D, fileName: string): Promise<THREE.BufferGeometry> {
-  const { mergeGeometries } = await import("three/addons/utils/BufferGeometryUtils.js");
+function modelFromGeometry(part: PartDefinition, geometry: THREE.BufferGeometry): LoadedPartModel {
+  prepareGeometry(geometry);
+  const material = createMaterial(part, geometry);
+  const mesh: RenderableMesh = new THREE.Mesh(geometry, material);
+  mesh.name = part.id;
+  const edgeLines = addEdgeLines(mesh, part.color);
+  return finalizePartModel(mesh, [mesh], edgeLines);
+}
+
+async function loadSceneModelFromBuffer(buffer: ArrayBuffer, format: ImportFormat, part: PartDefinition): Promise<LoadedPartModel> {
+  let object: THREE.Object3D;
+  if (format === "obj") {
+    const { OBJLoader } = await import("three/addons/loaders/OBJLoader.js");
+    const manager = resourceManagerFor(part.sourceFiles);
+    const loader = new OBJLoader(manager);
+    const materials = await loadObjMaterials(part, manager);
+    if (materials) loader.setMaterials(materials);
+    object = loader.parse(new TextDecoder().decode(buffer));
+  } else if (format === "glb" || format === "gltf") {
+    const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
+    const manager = resourceManagerFor(part.sourceFiles);
+    const gltfLoader = new GLTFLoader(manager);
+    const data = format === "gltf" ? new TextDecoder().decode(buffer) : buffer;
+    const gltf = await new Promise<{ scene: THREE.Object3D }>((resolve, reject) => {
+      gltfLoader.parse(data, "", resolve, reject);
+    });
+    object = gltf.scene;
+  } else if (format === "3mf") {
+    const { ThreeMFLoader } = await import("three/addons/loaders/3MFLoader.js");
+    object = new ThreeMFLoader().parse(buffer);
+  } else {
+    throw new Error(`Unsupported import format: ${format}`);
+  }
+
+  return modelFromObject(part, object);
+}
+
+async function loadObjMaterials(part: PartDefinition, manager: THREE.LoadingManager): Promise<unknown | null> {
+  const materialSource = part.sourceFiles?.find((file) => file.name.toLowerCase().endsWith(".mtl"));
+  if (!materialSource) return null;
+  const { MTLLoader } = await import("three/addons/loaders/MTLLoader.js");
+  const materials = new MTLLoader(manager).parse(new TextDecoder().decode(materialSource.buffer), "");
+  materials.preload();
+  return materials;
+}
+
+function modelFromObject(part: PartDefinition, object: THREE.Object3D): LoadedPartModel {
+  const root = new THREE.Group();
+  root.name = part.id;
+  root.add(object);
+
   object.updateMatrixWorld(true);
-  const geometries: THREE.BufferGeometry[] = [];
+  const renderMeshes: RenderableMesh[] = [];
+  const edgeLines: THREE.LineSegments[] = [];
 
   object.traverse((child) => {
     if (!(child instanceof THREE.Mesh) || !child.geometry) return;
-    const geometry = child.geometry.clone();
-    geometry.applyMatrix4(child.matrixWorld);
-    geometry.deleteAttribute("uv");
-    geometries.push(geometry.toNonIndexed());
+    const mesh = child as RenderableMesh;
+    prepareGeometry(mesh.geometry);
+    applyTextureColorSpace(mesh.material);
+    if (!mesh.material) mesh.material = createMaterial(part, mesh.geometry);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    renderMeshes.push(mesh);
+    edgeLines.push(...addEdgeLines(mesh, part.color));
   });
 
-  if (!geometries.length) throw new Error(`${fileName} contains no mesh geometry`);
-  const merged = mergeGeometries(geometries, false);
-  for (const geometry of geometries) geometry.dispose();
-  if (!merged) throw new Error(`Could not merge geometry from ${fileName}`);
-  merged.computeVertexNormals();
-  return merged;
+  if (!renderMeshes.length) throw new Error(`${part.fileName} contains no mesh geometry`);
+  return finalizePartModel(root, renderMeshes, edgeLines);
+}
+
+function finalizePartModel(root: THREE.Object3D, renderMeshes: RenderableMesh[], edgeLines: THREE.LineSegments[]): LoadedPartModel {
+  const materialStates = new Map<THREE.Material, MaterialState>();
+  for (const mesh of renderMeshes) {
+    for (const material of materialsFor(mesh)) rememberMaterialState(materialStates, material);
+  }
+  const localBounds = new THREE.Box3().setFromObject(root);
+  return {
+    root,
+    renderMeshes,
+    edgeLines,
+    materialStates,
+    localBounds,
+    triangles: renderMeshes.reduce((total, mesh) => total + triangleCount(mesh.geometry), 0),
+  };
+}
+
+function prepareGeometry(geometry: THREE.BufferGeometry): void {
+  if (!geometry.getAttribute("normal")) geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+}
+
+function addEdgeLines(mesh: RenderableMesh, color: number): THREE.LineSegments[] {
+  const edgeGeometry = new THREE.EdgesGeometry(mesh.geometry, 28);
+  const edgeMaterial = new THREE.LineBasicMaterial({
+    color: edgeColor(color),
+    transparent: true,
+    opacity: 0.42,
+    depthTest: true,
+  });
+  const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+  edges.name = `${mesh.name || "mesh"}-edges`;
+  edges.visible = edgesEnabled || wireframeEnabled || xrayEnabled;
+  mesh.add(edges);
+  return [edges];
+}
+
+function materialsFor(mesh: RenderableMesh): THREE.Material[] {
+  return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+}
+
+function rememberMaterialState(states: Map<THREE.Material, MaterialState>, material: THREE.Material): void {
+  if (states.has(material)) return;
+  states.set(material, {
+    opacity: material.opacity,
+    transparent: material.transparent,
+    depthWrite: material.depthWrite,
+    clippingPlanes: material.clippingPlanes ? material.clippingPlanes.slice() : null,
+    wireframe: "wireframe" in material ? Boolean(material.wireframe) : undefined,
+  });
+}
+
+function applyTextureColorSpace(materialOrMaterials: THREE.Material | THREE.Material[]): void {
+  for (const material of Array.isArray(materialOrMaterials) ? materialOrMaterials : [materialOrMaterials]) {
+    const mapKeys = ["map", "emissiveMap", "sheenColorMap", "specularColorMap"] as const;
+    for (const key of mapKeys) {
+      const texture = material[key as keyof THREE.Material] as THREE.Texture | null | undefined;
+      if (texture?.isTexture) texture.colorSpace = THREE.SRGBColorSpace;
+    }
+  }
+}
+
+function triangleCount(geometry: THREE.BufferGeometry): number {
+  const position = geometry.getAttribute("position");
+  if (!position) return 0;
+  return geometry.index ? Math.floor(geometry.index.count / 3) : Math.floor(position.count / 3);
+}
+
+function resourceManagerFor(files: SourceFile[] | undefined): THREE.LoadingManager {
+  const manager = new THREE.LoadingManager();
+  if (!files?.length) return manager;
+  const objectUrls: string[] = [];
+  const resourceMap = new Map(files.map((file) => [normalizeResourcePath(file.name), file]));
+
+  manager.setURLModifier((url) => {
+    const normalizedUrl = normalizeResourcePath(url);
+    const file = resourceMap.get(normalizedUrl) ?? resourceMap.get(normalizedUrl.split("/").pop() ?? "");
+    if (!file) return url;
+    const objectUrl = URL.createObjectURL(new Blob([file.buffer], { type: file.type || undefined }));
+    objectUrls.push(objectUrl);
+    return objectUrl;
+  });
+  manager.onLoad = () => {
+    window.setTimeout(() => objectUrls.splice(0).forEach((url) => URL.revokeObjectURL(url)), 1000);
+  };
+  return manager;
+}
+
+function normalizeResourcePath(path: string): string {
+  return decodeURIComponent(path.split(/[?#]/)[0] ?? "").replace(/^\.?\//, "").toLowerCase();
 }
 
 function clearAssembly(): void {
   selectedPart = null;
   isolated = false;
+  transformControls.detach();
   setIconButtonState(isolateSelectedEl, false, "Isolate selected part");
   selectionBox.visible = false;
   selectionBox.removeFromParent();
@@ -508,16 +678,31 @@ function clearAssembly(): void {
   selectedMetricsEl.innerHTML = metricHtml([["Selection", "Click a part"]]);
 
   for (const part of loadedParts.splice(0)) {
-    part.mesh.remove(part.edges);
-    part.mesh.geometry.dispose();
-    part.edges.geometry.dispose();
-    part.edges.material.dispose();
-    part.mesh.material.dispose();
+    for (const edge of part.edgeLines) {
+      edge.removeFromParent();
+      edge.geometry.dispose();
+      disposeMaterial(edge.material);
+    }
+    for (const mesh of part.renderMeshes) {
+      mesh.geometry.dispose();
+    }
+    for (const material of part.materialStates.keys()) {
+      disposeMaterial(material);
+    }
     assembly.remove(part.mesh);
   }
 
   assembly.rotation.set(0, 0, 0);
   assembly.position.set(0, 0, 0);
+}
+
+function disposeMaterial(material: THREE.Material | THREE.Material[]): void {
+  for (const item of Array.isArray(material) ? material : [material]) {
+    for (const value of Object.values(item)) {
+      if (value instanceof THREE.Texture) value.dispose();
+    }
+    item.dispose();
+  }
 }
 
 function resetScaleControls(): void {
@@ -568,15 +753,11 @@ function setAssemblyScale(factor: number, options: { syncInput?: boolean; refram
 }
 
 function scaleLoadedGeometry(ratio: number): void {
-  const scaleMatrix = new THREE.Matrix4().makeScale(ratio, ratio, ratio);
   for (const part of loadedParts) {
     part.mesh.position.copy(part.assembled);
-    part.mesh.geometry.applyMatrix4(scaleMatrix);
-    part.mesh.geometry.computeBoundingBox();
-    part.mesh.geometry.computeBoundingSphere();
-    part.localBounds.copy(part.mesh.geometry.boundingBox ?? new THREE.Box3());
-    part.edges.geometry.applyMatrix4(scaleMatrix);
-    part.edges.geometry.computeBoundingSphere();
+    part.mesh.scale.multiplyScalar(ratio);
+    part.mesh.updateMatrixWorld(true);
+    part.localBounds.copy(new THREE.Box3().setFromObject(part.mesh));
   }
 }
 
@@ -801,6 +982,35 @@ function bindControls(): void {
   focusSelectedEl.addEventListener("click", () => selectedPart && framePart(selectedPart));
   isolateSelectedEl.addEventListener("click", toggleIsolateSelected);
   showAllPartsEl.addEventListener("click", showAllParts);
+  undoTransformEl.addEventListener("click", undoTransform);
+  redoTransformEl.addEventListener("click", redoTransform);
+  document.querySelectorAll<HTMLButtonElement>("[data-transform-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setTransformMode(button.dataset.transformMode as TransformMode);
+    });
+  });
+  toggleTransformSpaceEl.addEventListener("click", toggleTransformSpace);
+  toggleTransformSnapEl.addEventListener("click", toggleTransformSnap);
+  resetTransformEl.addEventListener("click", resetSelectedTransform);
+  resetAllTransformsEl.addEventListener("click", resetAllTransforms);
+  transformControls.addEventListener("dragging-changed", (event) => {
+    transformDragging = Boolean(event.value);
+    controls.enabled = !transformDragging;
+    if (transformDragging) {
+      activeTransformStart = selectedPart ? [capturePartTransform(selectedPart)] : null;
+    } else if (selectedPart) {
+      syncSelectedPartFromGizmo(selectedPart);
+      updateTransformedPart(selectedPart);
+      commitTransformHistory(activeTransformStart, [capturePartTransform(selectedPart)]);
+      activeTransformStart = null;
+    }
+  });
+  transformControls.addEventListener("objectChange", () => {
+    if (!selectedPart) return;
+    syncSelectedPartFromGizmo(selectedPart);
+    updateTransformedPart(selectedPart);
+  });
+  window.addEventListener("keydown", handleTransformShortcut);
   sourceUnitEl.addEventListener("change", () => {
     const unit = sourceUnitEl.value as SourceUnit;
     if (unit === "custom") return;
@@ -991,7 +1201,8 @@ function setSidecarCollapsed(collapsed: boolean): void {
 async function loadFilesFromPicker(files: FileList | null): Promise<void> {
   if (!files?.length) return;
 
-  const modelFiles = Array.from(files).filter((file) => Boolean(extensionFor(file.name)));
+  const allFiles = Array.from(files);
+  const modelFiles = allFiles.filter((file) => Boolean(extensionFor(file.name)));
   filePickerEl.value = "";
   if (!modelFiles.length) {
     updateStatus("No supported CAD files");
@@ -1000,15 +1211,20 @@ async function loadFilesFromPicker(files: FileList | null): Promise<void> {
 
   try {
     updateStatus(`Importing ${modelFiles.length} file${modelFiles.length === 1 ? "" : "s"}`);
-    const uploadedParts = await buildUploadedParts(modelFiles);
+    const uploadedParts = await buildUploadedParts(modelFiles, allFiles);
     await loadAssembly(uploadedParts, "Uploaded assembly");
   } catch (error: unknown) {
     handleLoadError(error);
   }
 }
 
-async function buildUploadedParts(files: File[]): Promise<PartDefinition[]> {
+async function buildUploadedParts(files: File[], allFiles: File[] = files): Promise<PartDefinition[]> {
   const knownParts = new Map(demoParts.map((part) => [part.fileName.toLowerCase(), part]));
+  const sourceFiles: SourceFile[] = await Promise.all(allFiles.map(async (file) => ({
+    name: file.name,
+    buffer: await file.arrayBuffer(),
+    type: file.type,
+  })));
   const sortedFiles = files.slice().sort((left, right) => {
     const leftIndex = demoParts.findIndex((part) => part.fileName.toLowerCase() === left.name.toLowerCase());
     const rightIndex = demoParts.findIndex((part) => part.fileName.toLowerCase() === right.name.toLowerCase());
@@ -1017,12 +1233,14 @@ async function buildUploadedParts(files: File[]): Promise<PartDefinition[]> {
 
   return Promise.all(sortedFiles.map(async (file, index) => {
     const template = knownParts.get(file.name.toLowerCase());
-    const buffer = await file.arrayBuffer();
+    const sourceFile = sourceFiles.find((item) => item.name === file.name);
+    const buffer = sourceFile?.buffer.slice(0) ?? await file.arrayBuffer();
     return {
       id: template?.id ?? slugify(file.name, index),
       label: template?.label ?? labelFromFileName(file.name),
       fileName: file.name,
       source: buffer,
+      sourceFiles,
       format: extensionFor(file.name) ?? "stl",
       color: template?.color ?? fallbackColor(index),
       metalness: template?.metalness,
@@ -1148,14 +1366,15 @@ function applyRenderModes(): void {
   sectionValueEl.textContent = sectionEnabled ? `${Number(sectionRangeEl.value).toFixed(1)} mm` : "off";
 
   for (const part of loadedParts) {
-    const material = part.mesh.material;
-    material.clippingPlanes = sectionEnabled ? [sectionPlane] : [];
-    material.wireframe = wireframeEnabled;
-    material.opacity = xrayEnabled ? (part === selectedPart ? 0.62 : 0.24) : 1;
-    material.transparent = xrayEnabled;
-    material.depthWrite = !xrayEnabled;
-    material.needsUpdate = true;
-    part.edges.visible = edgesEnabled || wireframeEnabled || xrayEnabled;
+    for (const [material, state] of part.materialStates) {
+      material.clippingPlanes = sectionEnabled ? [sectionPlane] : state.clippingPlanes;
+      if ("wireframe" in material) material.wireframe = wireframeEnabled || Boolean(state.wireframe);
+      material.opacity = xrayEnabled ? Math.min(state.opacity, part === selectedPart ? 0.62 : 0.24) : state.opacity;
+      material.transparent = xrayEnabled || state.transparent;
+      material.depthWrite = xrayEnabled ? false : state.depthWrite;
+      material.needsUpdate = true;
+    }
+    for (const edges of part.edgeLines) edges.visible = edgesEnabled || wireframeEnabled || xrayEnabled;
   }
 }
 
@@ -1191,8 +1410,15 @@ function pickPart(event: PointerEvent): void {
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(loadedParts.map((part) => part.mesh), false);
-  selectPart(hits.length ? (loadedParts.find((part) => part.mesh === hits[0].object) ?? null) : null);
+  const pickMeshes = loadedParts
+    .filter((part) => part.mesh.visible)
+    .flatMap((part) => part.renderMeshes.filter((mesh) => mesh.visible));
+  const hits = raycaster.intersectObjects(pickMeshes, false);
+  selectPart(hits.length ? partForObject(hits[0].object) : null);
+}
+
+function partForObject(object: THREE.Object3D): LoadedPart | null {
+  return loadedParts.find((part) => part.renderMeshes.includes(object as RenderableMesh)) ?? null;
 }
 
 function selectPart(part: LoadedPart | null): void {
@@ -1205,6 +1431,7 @@ function selectPart(part: LoadedPart | null): void {
   if (!part) {
     selectedNameEl.textContent = "No selection";
     selectedMetricsEl.innerHTML = metricHtml([["Selection", "Click a part"]]);
+    transformControls.detach();
     selectionBox.visible = false;
     selectionBox.removeFromParent();
     updateFormatReadout();
@@ -1212,6 +1439,17 @@ function selectPart(part: LoadedPart | null): void {
   }
 
   selectedNameEl.textContent = part.definition.label;
+  updateSelectedMetrics();
+  transformControls.attach(part.mesh);
+  transformControls.setMode(transformMode);
+  updateSelectionBox();
+  applyRenderModes();
+  updateFormatReadout();
+}
+
+function updateSelectedMetrics(): void {
+  if (!selectedPart) return;
+  const part = selectedPart;
   const bounds = worldBoundsFor(part);
   const size = bounds.getSize(new THREE.Vector3());
   const center = bounds.getCenter(new THREE.Vector3());
@@ -1221,19 +1459,209 @@ function selectPart(part: LoadedPart | null): void {
     ["Z range", `${fmt(bounds.min.z)} to ${fmt(bounds.max.z)} mm`],
     ["Triangles", part.triangles.toLocaleString()],
   ]);
-  updateSelectionBox();
-  applyRenderModes();
-  updateFormatReadout();
 }
 
 function metricHtml(rows: Array<[string, string]>): string {
   return rows.map(([term, value]) => `<div><dt>${term}</dt><dd>${value}</dd></div>`).join("");
 }
 
+function setTransformMode(mode: TransformMode): void {
+  transformMode = mode;
+  transformControls.setMode(mode);
+  document.querySelectorAll<HTMLButtonElement>("[data-transform-mode]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.transformMode === mode));
+  });
+  updateStatus(mode === "translate" ? "Move selected" : `${mode[0].toUpperCase()}${mode.slice(1)} selected`);
+}
+
+function toggleTransformSpace(): void {
+  transformSpace = transformSpace === "world" ? "local" : "world";
+  transformControls.setSpace(transformSpace);
+  toggleTransformSpaceEl.setAttribute("aria-pressed", String(transformSpace === "local"));
+  toggleTransformSpaceEl.setAttribute("aria-label", transformSpace === "local" ? "Use world transform axes" : "Use local transform axes");
+  toggleTransformSpaceEl.title = transformSpace === "local" ? "Use world transform axes (L)" : "Use local transform axes (L)";
+  updateStatus(`${transformSpace[0].toUpperCase()}${transformSpace.slice(1)} axes`);
+}
+
+function toggleTransformSnap(): void {
+  transformSnapEnabled = !transformSnapEnabled;
+  transformControls.setTranslationSnap(transformSnapEnabled ? 1 : null);
+  transformControls.setRotationSnap(transformSnapEnabled ? THREE.MathUtils.degToRad(15) : null);
+  transformControls.setScaleSnap(transformSnapEnabled ? 0.1 : null);
+  toggleTransformSnapEl.setAttribute("aria-pressed", String(transformSnapEnabled));
+  toggleTransformSnapEl.setAttribute("aria-label", transformSnapEnabled ? "Disable transform snapping" : "Enable transform snapping");
+  toggleTransformSnapEl.title = transformSnapEnabled ? "Disable transform snapping (N)" : "Enable transform snapping (N)";
+  updateStatus(transformSnapEnabled ? "Snap on" : "Snap off");
+}
+
+function resetSelectedTransform(): void {
+  if (!selectedPart) return;
+  const before = [capturePartTransform(selectedPart)];
+  selectedPart.assembled.set(0, 0, 0);
+  selectedPart.mesh.rotation.set(0, 0, 0);
+  selectedPart.mesh.scale.setScalar(assemblyScaleFactor);
+  updateTransformedPart(selectedPart);
+  commitTransformHistory(before, [capturePartTransform(selectedPart)]);
+  updateStatus("Transform reset");
+}
+
+function resetAllTransforms(): void {
+  if (!loadedParts.length) return;
+  const before = captureAllTransforms();
+  for (const part of loadedParts) {
+    part.assembled.set(0, 0, 0);
+    part.mesh.rotation.set(0, 0, 0);
+    part.mesh.scale.setScalar(assemblyScaleFactor);
+    part.mesh.position.copy(part.assembled);
+    part.mesh.updateMatrixWorld(true);
+    part.localBounds.copy(new THREE.Box3().setFromObject(part.mesh));
+  }
+  refreshAssemblyAfterTransforms();
+  commitTransformHistory(before, captureAllTransforms());
+  updateStatus("All transforms reset");
+}
+
+function undoTransform(): void {
+  const entry = undoStack.pop();
+  if (!entry) return;
+  applyTransformStates(entry.before);
+  redoStack.push(entry);
+  updateHistoryButtons();
+  updateStatus("Undo transform");
+}
+
+function redoTransform(): void {
+  const entry = redoStack.pop();
+  if (!entry) return;
+  applyTransformStates(entry.after);
+  undoStack.push(entry);
+  updateHistoryButtons();
+  updateStatus("Redo transform");
+}
+
+function commitTransformHistory(before: PartTransformState[] | null, after: PartTransformState[]): void {
+  if (!before?.length || transformsEqual(before, after)) return;
+  undoStack.push({ before, after });
+  redoStack.length = 0;
+  updateHistoryButtons();
+}
+
+function clearTransformHistory(): void {
+  undoStack.length = 0;
+  redoStack.length = 0;
+  activeTransformStart = null;
+  updateHistoryButtons();
+}
+
+function updateHistoryButtons(): void {
+  undoTransformEl.disabled = undoStack.length === 0;
+  redoTransformEl.disabled = redoStack.length === 0;
+}
+
+function captureAllTransforms(): PartTransformState[] {
+  return loadedParts.map(capturePartTransform);
+}
+
+function capturePartTransform(part: LoadedPart): PartTransformState {
+  return {
+    partId: part.definition.id,
+    assembled: part.assembled.clone(),
+    rotation: part.mesh.rotation.clone(),
+    scale: part.mesh.scale.clone(),
+  };
+}
+
+function applyTransformStates(states: PartTransformState[]): void {
+  for (const state of states) {
+    const part = loadedParts.find((candidate) => candidate.definition.id === state.partId);
+    if (!part) continue;
+    part.assembled.copy(state.assembled);
+    part.mesh.rotation.copy(state.rotation);
+    part.mesh.scale.copy(state.scale);
+    part.mesh.position.copy(part.assembled);
+    part.mesh.updateMatrixWorld(true);
+    part.localBounds.copy(new THREE.Box3().setFromObject(part.mesh));
+  }
+  refreshAssemblyAfterTransforms();
+}
+
+function transformsEqual(left: PartTransformState[], right: PartTransformState[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((leftState, index) => {
+    const rightState = right[index];
+    return Boolean(rightState)
+      && leftState.partId === rightState.partId
+      && leftState.assembled.distanceToSquared(rightState.assembled) < 0.000001
+      && Math.abs(leftState.rotation.x - rightState.rotation.x) < 0.000001
+      && Math.abs(leftState.rotation.y - rightState.rotation.y) < 0.000001
+      && Math.abs(leftState.rotation.z - rightState.rotation.z) < 0.000001
+      && leftState.scale.distanceToSquared(rightState.scale) < 0.000001;
+  });
+}
+
+function syncSelectedPartFromGizmo(part: LoadedPart): void {
+  const explodeOffset = part.explodeOffset.clone().multiplyScalar(explodeValue);
+  part.assembled.copy(part.mesh.position).sub(explodeOffset);
+}
+
+function updateTransformedPart(part: LoadedPart): void {
+  part.mesh.position.copy(part.assembled);
+  part.mesh.updateMatrixWorld(true);
+  part.localBounds.copy(new THREE.Box3().setFromObject(part.mesh));
+  refreshAssemblyAfterTransforms();
+}
+
+function refreshAssemblyAfterTransforms(): void {
+  applyExplode(explodeValue);
+  assemblyBounds = measureAssemblyBounds();
+  sectionBounds.copy(assemblyBounds);
+  syncSectionRange(false);
+  configureSlicer();
+  updateModelMetrics();
+  if (selectedPart) updateSelectedMetrics();
+  updateSelectionBox();
+}
+
+function handleTransformShortcut(event: KeyboardEvent): void {
+  if (event.defaultPrevented || isEditableTarget(event.target)) return;
+  const key = event.key.toLowerCase();
+  const commandModifier = event.metaKey || event.ctrlKey;
+  if (commandModifier && key === "z") {
+    if (event.shiftKey) redoTransform();
+    else undoTransform();
+    event.preventDefault();
+  } else if (key === "g" || key === "w") {
+    setTransformMode("translate");
+    event.preventDefault();
+  } else if (key === "r" || key === "e") {
+    setTransformMode("rotate");
+    event.preventDefault();
+  } else if (key === "s") {
+    setTransformMode("scale");
+    event.preventDefault();
+  } else if (key === "l") {
+    toggleTransformSpace();
+    event.preventDefault();
+  } else if (key === "n") {
+    toggleTransformSnap();
+    event.preventDefault();
+  } else if (event.key === "Escape") {
+    selectPart(null);
+    event.preventDefault();
+  }
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+    || (target instanceof HTMLElement && target.isContentEditable);
+}
+
 function updateSelectionBox(): void {
   if (!selectedPart) return;
-  if (selectionBox.parent !== selectedPart.mesh) selectedPart.mesh.add(selectionBox);
-  selectionBox.box.copy(selectedPart.localBounds);
+  if (selectionBox.parent !== scene) scene.add(selectionBox);
+  selectionBox.box.copy(worldBoundsFor(selectedPart));
   selectionBox.visible = true;
   selectionBox.updateMatrixWorld(true);
 }
@@ -1352,15 +1780,22 @@ async function exportModel(selectedOnly: boolean): Promise<void> {
 
 function buildExportObject(parts: LoadedPart[]): THREE.Group {
   const group = new THREE.Group();
+  const assemblyInverse = assembly.matrixWorld.clone().invert();
   for (const part of parts) {
-    part.mesh.updateMatrix();
-    const geometry = part.mesh.geometry.clone();
-    geometry.applyMatrix4(part.mesh.matrix);
-    const mesh = new THREE.Mesh(geometry, part.mesh.material.clone());
-    mesh.name = part.definition.label;
-    group.add(mesh);
+    for (const sourceMesh of part.renderMeshes) {
+      sourceMesh.updateWorldMatrix(true, false);
+      const geometry = sourceMesh.geometry.clone();
+      geometry.applyMatrix4(assemblyInverse.clone().multiply(sourceMesh.matrixWorld));
+      const mesh = new THREE.Mesh(geometry, cloneMaterial(sourceMesh.material));
+      mesh.name = part.definition.label;
+      group.add(mesh);
+    }
   }
   return group;
+}
+
+function cloneMaterial(material: THREE.Material | THREE.Material[]): THREE.Material | THREE.Material[] {
+  return Array.isArray(material) ? material.map((item) => item.clone()) : material.clone();
 }
 
 function downloadBlob(fileName: string, data: string | ArrayBuffer | Uint8Array | Blob, mimeType: string): void {
@@ -1417,28 +1852,33 @@ function updateSlicePreview(): void {
 
 function sliceAtZ(z: number): Array<[THREE.Vector3, THREE.Vector3]> {
   const segments: Array<[THREE.Vector3, THREE.Vector3]> = [];
+  const assemblyInverse = assembly.matrixWorld.clone().invert();
   for (const part of loadedParts) {
     if (!part.mesh.visible) continue;
-    part.mesh.updateMatrix();
-    const position = part.mesh.geometry.getAttribute("position");
-    const index = part.mesh.geometry.index;
-    const triangleCount = index ? index.count / 3 : position.count / 3;
-    const a = new THREE.Vector3();
-    const b = new THREE.Vector3();
-    const c = new THREE.Vector3();
+    for (const mesh of part.renderMeshes) {
+      mesh.updateWorldMatrix(true, false);
+      const meshMatrix = assemblyInverse.clone().multiply(mesh.matrixWorld);
+      const position = mesh.geometry.getAttribute("position");
+      if (!position) continue;
+      const index = mesh.geometry.index;
+      const triangleCount = index ? index.count / 3 : position.count / 3;
+      const a = new THREE.Vector3();
+      const b = new THREE.Vector3();
+      const c = new THREE.Vector3();
 
-    for (let triangle = 0; triangle < triangleCount; triangle += 1) {
-      if (index) {
-        a.fromBufferAttribute(position, index.getX(triangle * 3)).applyMatrix4(part.mesh.matrix);
-        b.fromBufferAttribute(position, index.getX(triangle * 3 + 1)).applyMatrix4(part.mesh.matrix);
-        c.fromBufferAttribute(position, index.getX(triangle * 3 + 2)).applyMatrix4(part.mesh.matrix);
-      } else {
-        a.fromBufferAttribute(position, triangle * 3).applyMatrix4(part.mesh.matrix);
-        b.fromBufferAttribute(position, triangle * 3 + 1).applyMatrix4(part.mesh.matrix);
-        c.fromBufferAttribute(position, triangle * 3 + 2).applyMatrix4(part.mesh.matrix);
+      for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+        if (index) {
+          a.fromBufferAttribute(position, index.getX(triangle * 3)).applyMatrix4(meshMatrix);
+          b.fromBufferAttribute(position, index.getX(triangle * 3 + 1)).applyMatrix4(meshMatrix);
+          c.fromBufferAttribute(position, index.getX(triangle * 3 + 2)).applyMatrix4(meshMatrix);
+        } else {
+          a.fromBufferAttribute(position, triangle * 3).applyMatrix4(meshMatrix);
+          b.fromBufferAttribute(position, triangle * 3 + 1).applyMatrix4(meshMatrix);
+          c.fromBufferAttribute(position, triangle * 3 + 2).applyMatrix4(meshMatrix);
+        }
+        const hit = intersectTriangleWithZ(a, b, c, z);
+        if (hit) segments.push(hit);
       }
-      const hit = intersectTriangleWithZ(a, b, c, z);
-      if (hit) segments.push(hit);
     }
   }
   return segments;
@@ -1850,7 +2290,7 @@ function animate(): void {
   explodeValue += (explodeTarget - explodeValue) * 0.09;
   explodeRangeEl.value = explodeValue.toFixed(3);
   explodeValueEl.textContent = `${Math.round(explodeValue * 100)}%`;
-  applyExplode(explodeValue);
+  if (!transformDragging) applyExplode(explodeValue);
 
   if (spinEnabled) assembly.rotation.z += spinSpeed;
   controls.update();

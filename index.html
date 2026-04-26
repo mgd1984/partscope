@@ -23,6 +23,15 @@
       <symbol id="i-spin" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v6h-6"/></symbol>
       <symbol id="i-home" viewBox="0 0 24 24"><path d="m4 12 8-7 8 7"/><path d="M6 10.5V20h12v-9.5"/></symbol>
       <symbol id="i-focus" viewBox="0 0 24 24"><path d="M9 3H4v5M15 3h5v5M9 21H4v-5M15 21h5v-5"/><path d="M12 8v8M8 12h8"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5"/><path d="M5 12h9a6 6 0 0 1 6 6v1"/></symbol>
+      <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M19 12h-9a6 6 0 0 0-6 6v1"/></symbol>
+      <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
+      <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v6h-6"/><path d="M12 8v4l3 2"/></symbol>
+      <symbol id="i-scale" viewBox="0 0 24 24"><path d="M4 14v6h6M20 10V4h-6M14 20h6v-6M10 4H4v6"/><path d="M20 4 13 11M4 20l7-7"/></symbol>
+      <symbol id="i-clear" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <symbol id="i-space" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="m12 3 3 3m-3-3-3 3M21 12l-3 3m3-3-3-3"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-snap" viewBox="0 0 24 24"><path d="M6 4v7a6 6 0 0 0 12 0V4"/><path d="M6 8h5M13 8h5M6 4h5M13 4h5"/><path d="M9 19v2M15 19v2"/></symbol>
+      <symbol id="i-reset-all" viewBox="0 0 24 24"><path d="M4 5h6v6H4ZM14 5h6v6h-6ZM4 15h6v4H4ZM14 15h6v4h-6Z"/><path d="M20 3v4h-4"/></symbol>
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></symbol>
       <symbol id="i-all" viewBox="0 0 24 24"><path d="M4 5h7v7H4ZM13 5h7v7h-7ZM4 14h7v5H4ZM13 14h7v5h-7Z"/></symbol>
       <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 4v12m0 0-5-5m5 5 5-5"/><path d="M4 20h16"/></symbol>
@@ -64,7 +73,7 @@
             <div class="status" id="status" role="status" aria-label="Loading geometry"></div>
           </div>
         </div>
-        <input id="filePicker" type="file" accept=".stl,.obj,.ply,.glb,.gltf,.3mf" multiple hidden />
+        <input id="filePicker" type="file" accept=".stl,.obj,.ply,.glb,.gltf,.3mf,.mtl,.bin,.png,.jpg,.jpeg,.webp" multiple hidden />
       </section>
 
       <section class="hud viewbar" aria-label="View presets">
@@ -81,6 +90,17 @@
           <button id="toggleSpin" class="view-btn" type="button" aria-pressed="true" title="Toggle automatic rotation" aria-label="Toggle automatic rotation"><svg class="icon"><use href="#i-spin"></use></svg></button>
           <button id="resetCamera" class="view-btn" type="button" title="Reset camera" aria-label="Reset camera"><svg class="icon"><use href="#i-home"></use></svg></button>
           <button id="focusSelected" class="view-btn" type="button" title="Frame selected part" aria-label="Frame selected part"><svg class="icon"><use href="#i-focus"></use></svg></button>
+        </div>
+        <div class="viewbar-group transform-group" aria-label="Transform selected part">
+          <button id="undoTransform" class="view-btn" type="button" title="Undo transform (Cmd+Z)" aria-label="Undo transform" disabled><svg class="icon"><use href="#i-undo"></use></svg></button>
+          <button id="redoTransform" class="view-btn" type="button" title="Redo transform (Cmd+Shift+Z)" aria-label="Redo transform" disabled><svg class="icon"><use href="#i-redo"></use></svg></button>
+          <button class="view-btn" type="button" data-transform-mode="translate" aria-pressed="true" title="Move selected part (G)" aria-label="Move selected part"><svg class="icon"><use href="#i-move"></use></svg></button>
+          <button class="view-btn" type="button" data-transform-mode="rotate" aria-pressed="false" title="Rotate selected part (R)" aria-label="Rotate selected part"><svg class="icon"><use href="#i-rotate"></use></svg></button>
+          <button class="view-btn" type="button" data-transform-mode="scale" aria-pressed="false" title="Scale selected part (S)" aria-label="Scale selected part"><svg class="icon"><use href="#i-scale"></use></svg></button>
+          <button id="toggleTransformSpace" class="view-btn" type="button" aria-pressed="false" title="Use local transform axes (L)" aria-label="Use local transform axes"><svg class="icon"><use href="#i-space"></use></svg></button>
+          <button id="toggleTransformSnap" class="view-btn" type="button" aria-pressed="false" title="Enable transform snapping (N)" aria-label="Enable transform snapping"><svg class="icon"><use href="#i-snap"></use></svg></button>
+          <button id="resetTransform" class="view-btn" type="button" title="Reset selected transform" aria-label="Reset selected transform"><svg class="icon"><use href="#i-clear"></use></svg></button>
+          <button id="resetAllTransforms" class="view-btn" type="button" title="Reset all part transforms" aria-label="Reset all part transforms"><svg class="icon"><use href="#i-reset-all"></use></svg></button>
         </div>
       </section>
 
