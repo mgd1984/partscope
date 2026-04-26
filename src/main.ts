@@ -498,7 +498,7 @@ async function loadPartModel(part: PartDefinition): Promise<LoadedPartModel> {
     const { PLYLoader } = await import("three/addons/loaders/PLYLoader.js");
     return modelFromGeometry(part, new PLYLoader().parse(part.source.slice(0)));
   }
-  return loadSceneModelFromBuffer(part.source.slice(0), format, part);
+  return loadSceneModelFromBuffer(part.source.slice(0), format as unknown as ImportFormat, part);
 }
 
 function modelFromGeometry(part: PartDefinition, geometry: THREE.BufferGeometry): LoadedPartModel {
@@ -699,9 +699,9 @@ function clearAssembly(): void {
 function disposeMaterial(material: THREE.Material | THREE.Material[]): void {
   for (const item of Array.isArray(material) ? material : [material]) {
     for (const value of Object.values(item)) {
-      if (value instanceof THREE.Texture) value.dispose();
+      if (value instanceof THREE.Texture) void (value as THREE.Texture).dispose();
     }
-    item.dispose();
+    void (item as THREE.Material).dispose();
   }
 }
 
@@ -897,6 +897,7 @@ function buildPartToggles(): void {
 }
 
 function bindControls(): void {
+  bindToolbarMenus();
   bindSidecarControls();
   bindFooterControls();
 
@@ -1101,9 +1102,27 @@ function bindControls(): void {
   window.addEventListener("resize", resize);
 }
 
+function bindToolbarMenus(): void {
+  document.querySelectorAll<HTMLDetailsElement>(".toolbar-menu, .project-menu").forEach((menu) => {
+    menu.addEventListener("toggle", () => {
+      if (!menu.open) return;
+      document.querySelectorAll<HTMLDetailsElement>(".toolbar-menu, .project-menu").forEach((otherMenu) => {
+        if (otherMenu !== menu) otherMenu.open = false;
+      });
+    });
+  });
+}
+
 function bindFooterControls(): void {
   footerControlsEl.querySelectorAll<HTMLDetailsElement>(".control-panel").forEach((panel) => {
-    panel.addEventListener("toggle", syncFooterState);
+    panel.addEventListener("toggle", () => {
+      if (panel.open) {
+        footerControlsEl.querySelectorAll<HTMLDetailsElement>(".control-panel").forEach((otherPanel) => {
+          if (otherPanel !== panel) otherPanel.open = false;
+        });
+      }
+      syncFooterState();
+    });
   });
   syncFooterState();
 }
@@ -1191,6 +1210,14 @@ function restoreSidecarState(): void {
 }
 
 function setSidecarCollapsed(collapsed: boolean): void {
+  if (collapsed) {
+    sidecarEl.style.left = "";
+    sidecarEl.style.top = "";
+    sidecarEl.style.right = "";
+    sidecarEl.style.bottom = "";
+    sidecarEl.classList.remove("is-free");
+    window.localStorage.removeItem("partscope-sidecar-position");
+  }
   sidecarEl.classList.toggle("is-collapsed", collapsed);
   sidecarMinimizeEl.setAttribute("aria-pressed", String(collapsed));
   sidecarMinimizeEl.setAttribute("aria-label", collapsed ? "Expand inspector" : "Collapse inspector");
@@ -1799,7 +1826,7 @@ function cloneMaterial(material: THREE.Material | THREE.Material[]): THREE.Mater
 }
 
 function downloadBlob(fileName: string, data: string | ArrayBuffer | Uint8Array | Blob, mimeType: string): void {
-  const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
+  const blob = data instanceof Blob ? data : new Blob([data as unknown as ArrayBufferView<ArrayBuffer>], { type: mimeType });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = fileName;

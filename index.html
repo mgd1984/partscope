@@ -58,6 +58,78 @@
         </div>
         <div class="model-readout">
           <div class="readout-row">
+            <details class="project-menu">
+              <summary class="project-trigger" title="Project operations" aria-label="Project operations">
+                <svg class="icon"><use href="#i-export"></use></svg><span>Project</span>
+              </summary>
+              <div class="project-menu-content">
+                <section class="project-section" aria-label="CAD exchange">
+                  <header>
+                    <span>Exchange</span>
+                    <strong>CAD I/O</strong>
+                  </header>
+                  <div class="io-panel">
+                    <p id="importFormat" class="microcopy">Import: STL, OBJ, PLY, GLB, GLTF, 3MF</p>
+                    <label class="select-row" for="sourceUnit">
+                      <span>Source</span>
+                      <select id="sourceUnit">
+                        <option value="mm">Millimeters</option>
+                        <option value="cm">Centimeters</option>
+                        <option value="m">Meters</option>
+                        <option value="in">Inches</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label class="number-row" for="scaleFactor">
+                      <span>Scale</span>
+                      <input id="scaleFactor" type="number" min="0.000001" max="1000000" value="1" step="0.001" inputmode="decimal" />
+                    </label>
+                    <div class="dual-actions secondary-actions">
+                      <button id="resetScale" type="button"><span>Reset 1x</span></button>
+                      <p id="scaleReadout" class="microcopy scale-readout">1 unit = 1 mm</p>
+                    </div>
+                    <label class="select-row" for="exportFormat">
+                      <span>Export</span>
+                      <select id="exportFormat">
+                        <option value="stl">STL</option>
+                        <option value="obj">OBJ</option>
+                        <option value="ply">PLY</option>
+                        <option value="glb">GLB</option>
+                      </select>
+                    </label>
+                    <div class="dual-actions">
+                      <button id="exportAssembly" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>Model</span></button>
+                      <button id="exportSelected" type="button"><svg class="icon"><use href="#i-focus"></use></svg><span>Selected</span></button>
+                    </div>
+                  </div>
+                </section>
+                <section class="project-section" aria-label="Slicer CAM">
+                  <header>
+                    <span>Slicer</span>
+                    <strong>CAM</strong>
+                  </header>
+                  <label class="slider-row" for="layerHeight">
+                    <span>Layer</span>
+                    <input id="layerHeight" type="range" min="0.08" max="0.4" value="0.2" step="0.01" />
+                    <output id="layerHeightValue">0.20 mm</output>
+                  </label>
+                  <label class="slider-row" for="sliceLayer">
+                    <span>Index</span>
+                    <input id="sliceLayer" type="range" min="0" max="1" value="0" step="1" />
+                    <output id="sliceLayerValue">--</output>
+                  </label>
+                  <div class="dual-actions">
+                    <button id="toggleSlicer" type="button" aria-pressed="false"><svg class="icon"><use href="#i-slice"></use></svg><span>Preview</span></button>
+                    <button id="exportGcode" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>CNC G-code</span></button>
+                  </div>
+                  <div class="dual-actions secondary-actions">
+                    <button id="exportPrintPackage" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>Print ZIP</span></button>
+                    <button id="exportSliceSvg" type="button"><svg class="icon"><use href="#i-slice"></use></svg><span>Layer SVG</span></button>
+                  </div>
+                  <p id="slicerStats" class="microcopy">Preview off</p>
+                </section>
+              </div>
+            </details>
             <button id="uploadTrigger" class="icon-btn" type="button" title="Load CAD files" aria-label="Load CAD files">
               <svg class="icon"><use href="#i-upload"></use></svg>
             </button>
@@ -76,70 +148,83 @@
         <input id="filePicker" type="file" accept=".stl,.obj,.ply,.glb,.gltf,.3mf,.mtl,.bin,.png,.jpg,.jpeg,.webp" multiple hidden />
       </section>
 
-      <section class="hud viewbar" aria-label="View presets">
-        <div class="viewbar-group" aria-label="View orientation">
-          <button class="view-btn" type="button" data-view="iso" title="Isometric view" aria-label="Isometric view"><svg class="icon"><use href="#i-iso"></use></svg></button>
-          <button class="view-btn" type="button" data-view="top" title="Top view" aria-label="Top view"><svg class="icon"><use href="#i-top"></use></svg></button>
-          <button class="view-btn" type="button" data-view="front" title="Front view" aria-label="Front view"><svg class="icon"><use href="#i-front"></use></svg></button>
-          <button class="view-btn" type="button" data-view="right" title="Right view" aria-label="Right view"><svg class="icon"><use href="#i-right"></use></svg></button>
-          <button class="view-btn" type="button" data-view="left" title="Left view" aria-label="Left view"><svg class="icon"><use href="#i-left"></use></svg></button>
-          <button class="view-btn" type="button" data-view="bottom" title="Bottom view" aria-label="Bottom view"><svg class="icon"><use href="#i-bottom"></use></svg></button>
-        </div>
-        <div class="viewbar-group command-group" aria-label="Canvas commands">
-          <button id="toggleExplode" class="view-btn" type="button" aria-pressed="false" title="Toggle exploded view" aria-label="Toggle exploded view"><svg class="icon"><use href="#i-explode"></use></svg></button>
-          <button id="toggleSpin" class="view-btn" type="button" aria-pressed="true" title="Toggle automatic rotation" aria-label="Toggle automatic rotation"><svg class="icon"><use href="#i-spin"></use></svg></button>
-          <button id="resetCamera" class="view-btn" type="button" title="Reset camera" aria-label="Reset camera"><svg class="icon"><use href="#i-home"></use></svg></button>
-          <button id="focusSelected" class="view-btn" type="button" title="Frame selected part" aria-label="Frame selected part"><svg class="icon"><use href="#i-focus"></use></svg></button>
-        </div>
-        <div class="viewbar-group transform-group" aria-label="Transform selected part">
-          <button id="undoTransform" class="view-btn" type="button" title="Undo transform (Cmd+Z)" aria-label="Undo transform" disabled><svg class="icon"><use href="#i-undo"></use></svg></button>
-          <button id="redoTransform" class="view-btn" type="button" title="Redo transform (Cmd+Shift+Z)" aria-label="Redo transform" disabled><svg class="icon"><use href="#i-redo"></use></svg></button>
-          <button class="view-btn" type="button" data-transform-mode="translate" aria-pressed="true" title="Move selected part (G)" aria-label="Move selected part"><svg class="icon"><use href="#i-move"></use></svg></button>
-          <button class="view-btn" type="button" data-transform-mode="rotate" aria-pressed="false" title="Rotate selected part (R)" aria-label="Rotate selected part"><svg class="icon"><use href="#i-rotate"></use></svg></button>
-          <button class="view-btn" type="button" data-transform-mode="scale" aria-pressed="false" title="Scale selected part (S)" aria-label="Scale selected part"><svg class="icon"><use href="#i-scale"></use></svg></button>
-          <button id="toggleTransformSpace" class="view-btn" type="button" aria-pressed="false" title="Use local transform axes (L)" aria-label="Use local transform axes"><svg class="icon"><use href="#i-space"></use></svg></button>
-          <button id="toggleTransformSnap" class="view-btn" type="button" aria-pressed="false" title="Enable transform snapping (N)" aria-label="Enable transform snapping"><svg class="icon"><use href="#i-snap"></use></svg></button>
-          <button id="resetTransform" class="view-btn" type="button" title="Reset selected transform" aria-label="Reset selected transform"><svg class="icon"><use href="#i-clear"></use></svg></button>
-          <button id="resetAllTransforms" class="view-btn" type="button" title="Reset all part transforms" aria-label="Reset all part transforms"><svg class="icon"><use href="#i-reset-all"></use></svg></button>
-        </div>
+      <section class="hud viewbar" aria-label="Viewport tools">
+        <details class="toolbar-menu">
+          <summary class="toolbar-trigger" title="View orientation" aria-label="View orientation"><svg class="icon"><use href="#i-iso"></use></svg><span>View</span></summary>
+          <div class="viewbar-group toolbar-content" aria-label="View orientation">
+            <button class="view-btn" type="button" data-view="iso" title="Isometric view" aria-label="Isometric view"><svg class="icon"><use href="#i-iso"></use></svg></button>
+            <button class="view-btn" type="button" data-view="top" title="Top view" aria-label="Top view"><svg class="icon"><use href="#i-top"></use></svg></button>
+            <button class="view-btn" type="button" data-view="front" title="Front view" aria-label="Front view"><svg class="icon"><use href="#i-front"></use></svg></button>
+            <button class="view-btn" type="button" data-view="right" title="Right view" aria-label="Right view"><svg class="icon"><use href="#i-right"></use></svg></button>
+            <button class="view-btn" type="button" data-view="left" title="Left view" aria-label="Left view"><svg class="icon"><use href="#i-left"></use></svg></button>
+            <button class="view-btn" type="button" data-view="bottom" title="Bottom view" aria-label="Bottom view"><svg class="icon"><use href="#i-bottom"></use></svg></button>
+          </div>
+        </details>
+        <details class="toolbar-menu">
+          <summary class="toolbar-trigger" title="Scene commands" aria-label="Scene commands"><svg class="icon"><use href="#i-home"></use></svg><span>Scene</span></summary>
+          <div class="viewbar-group toolbar-content command-group" aria-label="Canvas commands">
+            <button id="toggleExplode" class="view-btn" type="button" aria-pressed="false" title="Toggle exploded view" aria-label="Toggle exploded view"><svg class="icon"><use href="#i-explode"></use></svg></button>
+            <button id="toggleSpin" class="view-btn" type="button" aria-pressed="true" title="Toggle automatic rotation" aria-label="Toggle automatic rotation"><svg class="icon"><use href="#i-spin"></use></svg></button>
+            <button id="resetCamera" class="view-btn" type="button" title="Reset camera" aria-label="Reset camera"><svg class="icon"><use href="#i-home"></use></svg></button>
+            <button id="focusSelected" class="view-btn" type="button" title="Frame selected part" aria-label="Frame selected part"><svg class="icon"><use href="#i-focus"></use></svg></button>
+          </div>
+        </details>
+        <details class="toolbar-menu">
+          <summary class="toolbar-trigger" title="Transform selected part" aria-label="Transform selected part"><svg class="icon"><use href="#i-move"></use></svg><span>Transform</span></summary>
+          <div class="viewbar-group toolbar-content transform-group" aria-label="Transform selected part">
+            <button id="undoTransform" class="view-btn" type="button" title="Undo transform (Cmd+Z)" aria-label="Undo transform" disabled><svg class="icon"><use href="#i-undo"></use></svg></button>
+            <button id="redoTransform" class="view-btn" type="button" title="Redo transform (Cmd+Shift+Z)" aria-label="Redo transform" disabled><svg class="icon"><use href="#i-redo"></use></svg></button>
+            <button class="view-btn" type="button" data-transform-mode="translate" aria-pressed="true" title="Move selected part (G)" aria-label="Move selected part"><svg class="icon"><use href="#i-move"></use></svg></button>
+            <button class="view-btn" type="button" data-transform-mode="rotate" aria-pressed="false" title="Rotate selected part (R)" aria-label="Rotate selected part"><svg class="icon"><use href="#i-rotate"></use></svg></button>
+            <button class="view-btn" type="button" data-transform-mode="scale" aria-pressed="false" title="Scale selected part (S)" aria-label="Scale selected part"><svg class="icon"><use href="#i-scale"></use></svg></button>
+            <button id="toggleTransformSpace" class="view-btn" type="button" aria-pressed="false" title="Use local transform axes (L)" aria-label="Use local transform axes"><svg class="icon"><use href="#i-space"></use></svg></button>
+            <button id="toggleTransformSnap" class="view-btn" type="button" aria-pressed="false" title="Enable transform snapping (N)" aria-label="Enable transform snapping"><svg class="icon"><use href="#i-snap"></use></svg></button>
+            <button id="resetTransform" class="view-btn" type="button" title="Reset selected transform" aria-label="Reset selected transform"><svg class="icon"><use href="#i-clear"></use></svg></button>
+            <button id="resetAllTransforms" class="view-btn" type="button" title="Reset all part transforms" aria-label="Reset all part transforms"><svg class="icon"><use href="#i-reset-all"></use></svg></button>
+          </div>
+        </details>
       </section>
 
       <section id="footerControls" class="hud controls" aria-label="Assembly controls">
         <details class="control-panel">
           <summary>Motion</summary>
-          <label class="slider-row" for="explodeRange">
-            <span>Stack</span>
-            <input id="explodeRange" type="range" min="0" max="1" value="0" step="0.001" />
-            <output id="explodeValue">0%</output>
-          </label>
-          <label class="slider-row" for="spinRange">
-            <span>Spin</span>
-            <input id="spinRange" type="range" min="-100" max="100" value="22" step="1" />
-            <output id="spinValue">22%</output>
-          </label>
+          <div class="control-content">
+            <label class="slider-row" for="explodeRange">
+              <span>Stack</span>
+              <input id="explodeRange" type="range" min="0" max="1" value="0" step="0.001" />
+              <output id="explodeValue">0%</output>
+            </label>
+            <label class="slider-row" for="spinRange">
+              <span>Spin</span>
+              <input id="spinRange" type="range" min="-100" max="100" value="22" step="1" />
+              <output id="spinValue">22%</output>
+            </label>
+          </div>
         </details>
 
         <details class="control-panel">
           <summary>Analysis</summary>
-          <div class="axis-row" aria-label="Section axis">
-            <span id="sectionAxisLabel">Cut Z</span>
-            <div class="axis-toggle">
-              <button class="axis-btn" type="button" data-section-axis="x" aria-pressed="false">X</button>
-              <button class="axis-btn" type="button" data-section-axis="y" aria-pressed="false">Y</button>
-              <button class="axis-btn" type="button" data-section-axis="z" aria-pressed="true">Z</button>
+          <div class="control-content">
+            <div class="axis-row" aria-label="Section axis">
+              <span id="sectionAxisLabel">Cut Z</span>
+              <div class="axis-toggle">
+                <button class="axis-btn" type="button" data-section-axis="x" aria-pressed="false">X</button>
+                <button class="axis-btn" type="button" data-section-axis="y" aria-pressed="false">Y</button>
+                <button class="axis-btn" type="button" data-section-axis="z" aria-pressed="true">Z</button>
+              </div>
             </div>
-          </div>
-          <label class="slider-row" for="sectionRange">
-            <span>Plane</span>
-            <input id="sectionRange" type="range" min="0" max="32" value="32" step="0.1" disabled />
-            <output id="sectionValue">off</output>
-          </label>
-          <div class="tool-row">
-            <button id="toggleSection" class="toggle-small" type="button" aria-pressed="false">Section</button>
-            <button id="toggleEdges" class="toggle-small" type="button" aria-pressed="true">Edges</button>
-            <button id="toggleWireframe" class="toggle-small" type="button" aria-pressed="false">Wire</button>
-            <button id="toggleXray" class="toggle-small" type="button" aria-pressed="false">X-Ray</button>
-            <button id="toggleGrid" class="toggle-small" type="button" aria-pressed="true">Grid</button>
+            <label class="slider-row" for="sectionRange">
+              <span>Plane</span>
+              <input id="sectionRange" type="range" min="0" max="32" value="32" step="0.1" disabled />
+              <output id="sectionValue">off</output>
+            </label>
+            <div class="tool-row">
+              <button id="toggleSection" class="toggle-small" type="button" aria-pressed="false">Section</button>
+              <button id="toggleEdges" class="toggle-small" type="button" aria-pressed="true">Edges</button>
+              <button id="toggleWireframe" class="toggle-small" type="button" aria-pressed="false">Wire</button>
+              <button id="toggleXray" class="toggle-small" type="button" aria-pressed="false">X-Ray</button>
+              <button id="toggleGrid" class="toggle-small" type="button" aria-pressed="true">Grid</button>
+            </div>
           </div>
         </details>
       </section>
@@ -182,72 +267,6 @@
           <div class="part-list" id="partList" aria-label="Visible parts"></div>
         </details>
 
-        <details class="inspector-panel">
-          <summary>
-            <span>Exchange</span>
-            <strong>CAD I/O</strong>
-          </summary>
-          <div class="io-panel">
-            <p id="importFormat" class="microcopy">Import: STL, OBJ, PLY, GLB, GLTF, 3MF</p>
-            <label class="select-row" for="sourceUnit">
-              <span>Source</span>
-              <select id="sourceUnit">
-                <option value="mm">Millimeters</option>
-                <option value="cm">Centimeters</option>
-                <option value="m">Meters</option>
-                <option value="in">Inches</option>
-                <option value="custom">Custom</option>
-              </select>
-            </label>
-            <label class="number-row" for="scaleFactor">
-              <span>Scale</span>
-              <input id="scaleFactor" type="number" min="0.000001" max="1000000" value="1" step="0.001" inputmode="decimal" />
-            </label>
-            <div class="dual-actions secondary-actions">
-              <button id="resetScale" type="button"><span>Reset 1x</span></button>
-              <p id="scaleReadout" class="microcopy scale-readout">1 unit = 1 mm</p>
-            </div>
-            <label class="select-row" for="exportFormat">
-              <span>Export</span>
-              <select id="exportFormat">
-                <option value="stl">STL</option>
-                <option value="obj">OBJ</option>
-                <option value="ply">PLY</option>
-                <option value="glb">GLB</option>
-              </select>
-            </label>
-            <div class="dual-actions">
-              <button id="exportAssembly" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>Model</span></button>
-              <button id="exportSelected" type="button"><svg class="icon"><use href="#i-focus"></use></svg><span>Selected</span></button>
-            </div>
-          </div>
-        </details>
-
-        <details class="inspector-panel">
-          <summary>
-            <span>Slicer</span>
-            <strong>CAM</strong>
-          </summary>
-          <label class="slider-row" for="layerHeight">
-            <span>Layer</span>
-            <input id="layerHeight" type="range" min="0.08" max="0.4" value="0.2" step="0.01" />
-            <output id="layerHeightValue">0.20 mm</output>
-          </label>
-          <label class="slider-row" for="sliceLayer">
-            <span>Index</span>
-            <input id="sliceLayer" type="range" min="0" max="1" value="0" step="1" />
-            <output id="sliceLayerValue">--</output>
-          </label>
-          <div class="dual-actions">
-            <button id="toggleSlicer" type="button" aria-pressed="false"><svg class="icon"><use href="#i-slice"></use></svg><span>Preview</span></button>
-            <button id="exportGcode" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>CNC G-code</span></button>
-          </div>
-          <div class="dual-actions secondary-actions">
-            <button id="exportPrintPackage" type="button"><svg class="icon"><use href="#i-export"></use></svg><span>Print ZIP</span></button>
-            <button id="exportSliceSvg" type="button"><svg class="icon"><use href="#i-slice"></use></svg><span>Layer SVG</span></button>
-          </div>
-          <p id="slicerStats" class="microcopy">Preview off</p>
-        </details>
       </aside>
     </main>
     <script type="module" src="/src/main.ts"></script>
