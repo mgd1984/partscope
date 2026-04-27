@@ -136,6 +136,7 @@
             <button id="restoreDemo" class="icon-btn" type="button" title="Restore demo assembly" aria-label="Restore demo assembly">
               <svg class="icon"><use href="#i-demo"></use></svg>
             </button>
+            <select id="demoPicker" title="Choose demo assembly" aria-label="Choose demo assembly"></select>
             <button id="themeToggle" class="icon-btn" type="button" aria-pressed="false" title="Toggle dark mode" aria-label="Toggle dark mode">
               <svg class="icon"><use href="#i-theme"></use></svg>
             </button>
@@ -165,6 +166,7 @@
           <div class="viewbar-group toolbar-content command-group" aria-label="Canvas commands">
             <button id="toggleExplode" class="view-btn" type="button" aria-pressed="false" title="Toggle exploded view" aria-label="Toggle exploded view"><svg class="icon"><use href="#i-explode"></use></svg></button>
             <button id="toggleSpin" class="view-btn" type="button" aria-pressed="true" title="Toggle automatic rotation" aria-label="Toggle automatic rotation"><svg class="icon"><use href="#i-spin"></use></svg></button>
+            <button id="toggleObjectRotate" class="view-btn" type="button" aria-pressed="false" title="Rotate object with fixed camera" aria-label="Rotate object with fixed camera"><svg class="icon"><use href="#i-rotate"></use></svg></button>
             <button id="resetCamera" class="view-btn" type="button" title="Reset camera" aria-label="Reset camera"><svg class="icon"><use href="#i-home"></use></svg></button>
             <button id="focusSelected" class="view-btn" type="button" title="Frame selected part" aria-label="Frame selected part"><svg class="icon"><use href="#i-focus"></use></svg></button>
           </div>
@@ -179,6 +181,9 @@
             <button class="view-btn" type="button" data-transform-mode="scale" aria-pressed="false" title="Scale selected part (S)" aria-label="Scale selected part"><svg class="icon"><use href="#i-scale"></use></svg></button>
             <button id="toggleTransformSpace" class="view-btn" type="button" aria-pressed="false" title="Use local transform axes (L)" aria-label="Use local transform axes"><svg class="icon"><use href="#i-space"></use></svg></button>
             <button id="toggleTransformSnap" class="view-btn" type="button" aria-pressed="false" title="Enable transform snapping (N)" aria-label="Enable transform snapping"><svg class="icon"><use href="#i-snap"></use></svg></button>
+            <button class="view-btn" type="button" data-flip-axis="x" title="Flip selected part on X" aria-label="Flip selected part on X">X</button>
+            <button class="view-btn" type="button" data-flip-axis="y" title="Flip selected part on Y" aria-label="Flip selected part on Y">Y</button>
+            <button class="view-btn" type="button" data-flip-axis="z" title="Flip selected part on Z" aria-label="Flip selected part on Z">Z</button>
             <button id="resetTransform" class="view-btn" type="button" title="Reset selected transform" aria-label="Reset selected transform"><svg class="icon"><use href="#i-clear"></use></svg></button>
             <button id="resetAllTransforms" class="view-btn" type="button" title="Reset all part transforms" aria-label="Reset all part transforms"><svg class="icon"><use href="#i-reset-all"></use></svg></button>
           </div>

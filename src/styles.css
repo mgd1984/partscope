@@ -186,6 +186,14 @@ select {
   height: 100vh;
 }
 
+#scene.object-rotate-mode {
+  cursor: grab;
+}
+
+#scene.object-rotate-mode.is-object-rotating {
+  cursor: grabbing;
+}
+
 .hud {
   position: fixed;
   z-index: 3;

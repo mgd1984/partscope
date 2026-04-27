@@ -28,7 +28,7 @@ PartScope keeps the job narrow:
 - CAD export for STL, OBJ, PLY, and GLB
 - CNC contour G-code export
 - Additive print package export with layer SVGs, contour JSON, source STL, manifest, README, and animated preview GIF
-- Bundled demo assembly
+- Bundled demo assemblies
 - Local CAD upload from file picker or drag and drop
 
 ![PartScope section view](.github/screenshots/partscope-section.png)
@@ -40,21 +40,26 @@ npm install
 npm run dev
 ```
 
-That starts the viewer with the bundled demo assembly in `public/models/concept_puck_v3`.
+That starts the viewer with bundled demo assemblies, including the Sensor Puck in `public/models/sensor_puck`.
 Use the load control or drag supported CAD files onto the window to inspect local geometry without uploading it anywhere.
+
+Bundled demos:
+
+- Sensor Puck: multi-part STL assembly
+- Boosted Remote: GLB scene model
 
 ## Model Contract
 
-The bundled demo assembly is loaded from:
+The bundled Sensor Puck demo assembly is loaded from:
 
-- `concept_puck_v3_base.stl`
-- `concept_puck_v3_battery_18650.stl`
-- `concept_puck_v3_main_board.stl`
-- `concept_puck_v3_mezz_connectors.stl`
-- `concept_puck_v3_mic_capsules.stl`
-- `concept_puck_v3_sensor_board.stl`
-- `concept_puck_v3_top.stl`
-- `concept_puck_v3_vibration_sensor.stl`
+- `sensor_puck_base.stl`
+- `sensor_puck_battery_18650.stl`
+- `sensor_puck_main_board.stl`
+- `sensor_puck_mezz_connectors.stl`
+- `sensor_puck_mic_capsules.stl`
+- `sensor_puck_sensor_board.stl`
+- `sensor_puck_top.stl`
+- `sensor_puck_vibration_sensor.stl`
 
 ## Build
 

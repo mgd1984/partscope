@@ -59,6 +59,13 @@ type LoadedPart = {
   triangles: number;
 };
 
+type DemoAssembly = {
+  id: string;
+  label: string;
+  parts: PartDefinition[];
+  initialScale?: number;
+};
+
 type ViewPreset = "iso" | "top" | "front" | "right" | "left" | "bottom";
 type SectionAxis = "x" | "y" | "z";
 type ThemeName = "light" | "dark";
@@ -77,7 +84,7 @@ type TransformHistoryEntry = {
   after: PartTransformState[];
 };
 
-const demoParts: PartDefinition[] = [
+const sensorPuckParts: PartDefinition[] = [
   {
     id: "base",
     label: "Base",
@@ -158,11 +165,39 @@ const demoParts: PartDefinition[] = [
   },
 ];
 
+const boostedRemoteParts: PartDefinition[] = [
+  {
+    id: "boostedRemoteBlack",
+    label: "Boosted Remote Black",
+    fileName: "boosted_remote_black.glb",
+    source: "/boosted_remote/boosted_remote_black.glb",
+    format: "glb",
+    color: 0x222222,
+    roughness: 0.45,
+    explode: [0, 0, 0],
+  },
+];
+
+const demoAssemblies: DemoAssembly[] = [
+  {
+    id: "sensorPuck",
+    label: "Sensor Puck",
+    parts: sensorPuckParts,
+  },
+  {
+    id: "boostedRemote",
+    label: "Boosted Remote",
+    parts: boostedRemoteParts,
+    initialScale: 1000,
+  },
+];
+
 const canvas = mustQuery<HTMLCanvasElement>("#scene");
 const statusEl = mustQuery<HTMLElement>("#status");
 const modelMetricsEl = mustQuery<HTMLElement>("#modelMetrics");
 const uploadTriggerEl = mustQuery<HTMLButtonElement>("#uploadTrigger");
 const restoreDemoEl = mustQuery<HTMLButtonElement>("#restoreDemo");
+const demoPickerEl = mustQuery<HTMLSelectElement>("#demoPicker");
 const filePickerEl = mustQuery<HTMLInputElement>("#filePicker");
 const themeToggleEl = mustQuery<HTMLButtonElement>("#themeToggle");
 const fullscreenToggleEl = mustQuery<HTMLButtonElement>("#fullscreenToggle");
@@ -175,6 +210,7 @@ const sectionValueEl = mustQuery<HTMLOutputElement>("#sectionValue");
 const sectionAxisLabelEl = mustQuery<HTMLElement>("#sectionAxisLabel");
 const toggleExplodeEl = mustQuery<HTMLButtonElement>("#toggleExplode");
 const toggleSpinEl = mustQuery<HTMLButtonElement>("#toggleSpin");
+const toggleObjectRotateEl = mustQuery<HTMLButtonElement>("#toggleObjectRotate");
 const toggleSectionEl = mustQuery<HTMLButtonElement>("#toggleSection");
 const toggleEdgesEl = mustQuery<HTMLButtonElement>("#toggleEdges");
 const toggleWireframeEl = mustQuery<HTMLButtonElement>("#toggleWireframe");
@@ -318,6 +354,8 @@ let explodeTarget = 0;
 let explodeValue = 0;
 let spinEnabled = true;
 let spinSpeed = Number(spinRangeEl.value) / 18000;
+let objectRotateMode = false;
+let objectRotateDrag: { x: number; y: number } | null = null;
 let sectionEnabled = false;
 let sectionAxis: SectionAxis = "z";
 let edgesEnabled = true;
@@ -344,6 +382,7 @@ let sliceLayerZ = 0;
 
 const importFormats: ImportFormat[] = ["stl", "obj", "ply", "glb", "gltf", "3mf"];
 const exportFormats: ExportFormat[] = ["stl", "obj", "ply", "glb"];
+const demoStorageKey = "partscope.demoAssembly";
 const unitScaleToMm: Record<Exclude<SourceUnit, "custom">, number> = {
   mm: 1,
   cm: 10,
@@ -365,7 +404,8 @@ restoreSidecarState();
 applyTheme(theme);
 resize();
 
-loadAssembly(demoParts, "Demo assembly").catch((error: unknown) => {
+populateDemoPicker();
+loadDemoAssembly().catch((error: unknown) => {
   console.error(error);
   updateStatus("Failed to load geometry");
 });
@@ -444,7 +484,7 @@ function createMaterial(part: PartDefinition, geometry?: THREE.BufferGeometry): 
   });
 }
 
-async function loadAssembly(parts: PartDefinition[], label: string): Promise<void> {
+async function loadAssembly(parts: PartDefinition[], label: string, initialScale = 1): Promise<void> {
   clearAssembly();
   clearTransformHistory();
   setScaleControlsLocked(true);
@@ -472,6 +512,7 @@ async function loadAssembly(parts: PartDefinition[], label: string): Promise<voi
     }
 
     refreshAssemblyLayout();
+    applyInitialAssemblyScale(initialScale);
 
     configureSectionRange();
     configureSlicer();
@@ -486,10 +527,55 @@ async function loadAssembly(parts: PartDefinition[], label: string): Promise<voi
   }
 }
 
+function populateDemoPicker(): void {
+  const fragment = document.createDocumentFragment();
+  for (const demo of demoAssemblies) {
+    const option = document.createElement("option");
+    option.value = demo.id;
+    option.textContent = demo.label;
+    fragment.append(option);
+  }
+  demoPickerEl.replaceChildren(fragment);
+  demoPickerEl.value = storedDemoId() ?? demoAssemblies[0]?.id ?? "";
+}
+
+async function loadDemoAssembly(): Promise<void> {
+  const demo = demoAssemblies.find((assembly) => assembly.id === demoPickerEl.value) ?? demoAssemblies[0];
+  if (!demo) throw new Error("No demo assemblies available");
+  demoPickerEl.value = demo.id;
+  storeDemoId(demo.id);
+  await loadAssembly(demo.parts, demo.label, demo.initialScale);
+}
+
+function storedDemoId(): string | null {
+  try {
+    const value = window.localStorage.getItem(demoStorageKey);
+    return demoAssemblies.some((demo) => demo.id === value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeDemoId(id: string): void {
+  try {
+    window.localStorage.setItem(demoStorageKey, id);
+  } catch {
+    // Demo persistence is a convenience; private browsing/storage errors should not block loading.
+  }
+}
+
 async function loadPartModel(part: PartDefinition): Promise<LoadedPartModel> {
   if (typeof part.source === "string") {
-    const geometry = await stlLoader.loadAsync(part.source);
-    return modelFromGeometry(part, geometry);
+    const format = part.format ?? extensionFor(part.fileName);
+    if (format === "stl") {
+      const geometry = await stlLoader.loadAsync(part.source);
+      return modelFromGeometry(part, geometry);
+    }
+    if (!format) throw new Error(`Unsupported import format: ${part.fileName}`);
+
+    const response = await fetch(part.source);
+    if (!response.ok) throw new Error(`Failed to load ${part.fileName}`);
+    return loadSceneModelFromBuffer(await response.arrayBuffer(), format, part);
   }
 
   const format = part.format ?? extensionFor(part.fileName);
@@ -569,7 +655,16 @@ function modelFromObject(part: PartDefinition, object: THREE.Object3D): LoadedPa
   });
 
   if (!renderMeshes.length) throw new Error(`${part.fileName} contains no mesh geometry`);
+  centerSceneModelPivot(root, object);
   return finalizePartModel(root, renderMeshes, edgeLines);
+}
+
+function centerSceneModelPivot(root: THREE.Object3D, object: THREE.Object3D): void {
+  root.updateMatrixWorld(true);
+  const center = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
+  if (!Number.isFinite(center.lengthSq()) || center.lengthSq() <= 0.0000001) return;
+  object.position.sub(center);
+  object.updateMatrixWorld(true);
 }
 
 function finalizePartModel(root: THREE.Object3D, renderMeshes: RenderableMesh[], edgeLines: THREE.LineSegments[]): LoadedPartModel {
@@ -752,6 +847,18 @@ function setAssemblyScale(factor: number, options: { syncInput?: boolean; refram
   if (options.reframe !== false) setView("iso");
 }
 
+function applyInitialAssemblyScale(factor: number): void {
+  if (!Number.isFinite(factor) || factor <= 0 || Math.abs(factor - 1) <= 0.0000001) return;
+
+  const nextScale = clamp(factor, 0.000001, 1000000);
+  sourceUnitEl.value = nextScale === unitScaleToMm.m ? "m" : "custom";
+  scaleFactorEl.value = formatScaleInput(nextScale);
+  scaleLoadedGeometry(nextScale);
+  assemblyScaleFactor = nextScale;
+  refreshAssemblyLayout();
+  updateScaleReadout();
+}
+
 function scaleLoadedGeometry(ratio: number): void {
   for (const part of loadedParts) {
     part.mesh.position.copy(part.assembled);
@@ -903,7 +1010,10 @@ function bindControls(): void {
 
   uploadTriggerEl.addEventListener("click", () => filePickerEl.click());
   restoreDemoEl.addEventListener("click", () => {
-    loadAssembly(demoParts, "Demo assembly").catch(handleLoadError);
+    loadDemoAssembly().catch(handleLoadError);
+  });
+  demoPickerEl.addEventListener("change", () => {
+    loadDemoAssembly().catch(handleLoadError);
   });
   filePickerEl.addEventListener("change", () => {
     void loadFilesFromPicker(filePickerEl.files);
@@ -932,6 +1042,7 @@ function bindControls(): void {
     spinEnabled = !spinEnabled;
     toggleSpinEl.setAttribute("aria-pressed", String(spinEnabled));
   });
+  toggleObjectRotateEl.addEventListener("click", toggleObjectRotateMode);
 
   spinRangeEl.addEventListener("input", () => {
     spinSpeed = Number(spinRangeEl.value) / 18000;
@@ -994,6 +1105,9 @@ function bindControls(): void {
   toggleTransformSnapEl.addEventListener("click", toggleTransformSnap);
   resetTransformEl.addEventListener("click", resetSelectedTransform);
   resetAllTransformsEl.addEventListener("click", resetAllTransforms);
+  document.querySelectorAll<HTMLButtonElement>("[data-flip-axis]").forEach((button) => {
+    button.addEventListener("click", () => flipSelectedPart(button.dataset.flipAxis as "x" | "y" | "z"));
+  });
   transformControls.addEventListener("dragging-changed", (event) => {
     transformDragging = Boolean(event.value);
     controls.enabled = !transformDragging;
@@ -1063,9 +1177,28 @@ function bindControls(): void {
 
   canvas.addEventListener("pointerdown", (event) => {
     dragStart = { x: event.clientX, y: event.clientY };
+    if (objectRotateMode && event.button === 0) {
+      objectRotateDrag = { x: event.clientX, y: event.clientY };
+      canvas.classList.add("is-object-rotating");
+      canvas.setPointerCapture(event.pointerId);
+    }
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (!objectRotateMode || !objectRotateDrag || transformDragging) return;
+    const dx = event.clientX - objectRotateDrag.x;
+    const dy = event.clientY - objectRotateDrag.y;
+    objectRotateDrag = { x: event.clientX, y: event.clientY };
+    rotateAssemblyFromScreenDrag(dx, dy);
+    event.preventDefault();
   });
 
   canvas.addEventListener("pointerup", (event) => {
+    if (objectRotateDrag) {
+      objectRotateDrag = null;
+      canvas.classList.remove("is-object-rotating");
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    }
     if (!dragStart) return;
     const moved = Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y);
     dragStart = null;
@@ -1246,13 +1379,14 @@ async function loadFilesFromPicker(files: FileList | null): Promise<void> {
 }
 
 async function buildUploadedParts(files: File[], allFiles: File[] = files): Promise<PartDefinition[]> {
-  const knownParts = new Map(demoParts.map((part) => [part.fileName.toLowerCase(), part]));
+  const knownParts = new Map(demoAssemblies.flatMap((demo) => demo.parts.map((part) => [part.fileName.toLowerCase(), part])));
   const sourceFiles: SourceFile[] = await Promise.all(allFiles.map(async (file) => ({
     name: file.name,
     buffer: await file.arrayBuffer(),
     type: file.type,
   })));
   const sortedFiles = files.slice().sort((left, right) => {
+    const demoParts = demoAssemblies.flatMap((demo) => demo.parts);
     const leftIndex = demoParts.findIndex((part) => part.fileName.toLowerCase() === left.name.toLowerCase());
     const rightIndex = demoParts.findIndex((part) => part.fileName.toLowerCase() === right.name.toLowerCase());
     return normalizeSortIndex(leftIndex, left.name).localeCompare(normalizeSortIndex(rightIndex, right.name));
@@ -1548,6 +1682,25 @@ function resetAllTransforms(): void {
   updateStatus("All transforms reset");
 }
 
+function flipSelectedPart(axis: "x" | "y" | "z"): void {
+  if (!selectedPart) {
+    updateStatus("Select a part to flip");
+    return;
+  }
+
+  const before = [capturePartTransform(selectedPart)];
+  selectedPart.mesh.rotateOnAxis(axisVector(axis), Math.PI);
+  updateTransformedPart(selectedPart);
+  commitTransformHistory(before, [capturePartTransform(selectedPart)]);
+  updateStatus(`Flipped ${selectedPart.definition.label} ${axis.toUpperCase()}`);
+}
+
+function axisVector(axis: "x" | "y" | "z"): THREE.Vector3 {
+  if (axis === "x") return new THREE.Vector3(1, 0, 0);
+  if (axis === "y") return new THREE.Vector3(0, 1, 0);
+  return new THREE.Vector3(0, 0, 1);
+}
+
 function undoTransform(): void {
   const entry = undoStack.pop();
   if (!entry) return;
@@ -1642,11 +1795,27 @@ function refreshAssemblyAfterTransforms(): void {
   applyExplode(explodeValue);
   assemblyBounds = measureAssemblyBounds();
   sectionBounds.copy(assemblyBounds);
+  syncCameraModelFromBounds();
   syncSectionRange(false);
   configureSlicer();
   updateModelMetrics();
   if (selectedPart) updateSelectedMetrics();
   updateSelectionBox();
+}
+
+function syncCameraModelFromBounds(): void {
+  if (assemblyBounds.isEmpty()) return;
+  const size = assemblyBounds.getSize(new THREE.Vector3());
+  const extent = Math.max(size.x, size.y, size.z, 1);
+  cameraTarget = assemblyBounds.getCenter(new THREE.Vector3());
+  assemblyViewDistance = Math.max(size.length() * 1.4, extent * 2.2, 8);
+  updateCameraControlLimits();
+
+  const radius = Math.max(size.length() / 2, 1);
+  if (controls.target.distanceTo(cameraTarget) > radius * 1.5) {
+    controls.target.copy(cameraTarget);
+    controls.update();
+  }
 }
 
 function handleTransformShortcut(event: KeyboardEvent): void {
@@ -1671,6 +1840,12 @@ function handleTransformShortcut(event: KeyboardEvent): void {
     event.preventDefault();
   } else if (key === "n") {
     toggleTransformSnap();
+    event.preventDefault();
+  } else if (key === "o") {
+    toggleObjectRotateMode();
+    event.preventDefault();
+  } else if ((key === "x" || key === "y" || key === "z") && selectedPart && !commandModifier) {
+    flipSelectedPart(key);
     event.preventDefault();
   } else if (event.key === "Escape") {
     selectPart(null);
@@ -1702,7 +1877,8 @@ function framePart(part: LoadedPart): void {
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
   const radius = Math.max(size.x, size.y, size.z, 14);
-  const direction = camera.position.clone().sub(controls.target).normalize();
+  const direction = camera.position.clone().sub(center).normalize();
+  if (direction.lengthSq() <= 0.000001) direction.set(0.74, -0.96, 0.48).normalize();
   controls.target.copy(center);
   camera.position.copy(center).add(direction.multiplyScalar(radius * 3.4));
   camera.near = Math.max(0.1, radius / 80);
@@ -1734,6 +1910,27 @@ function syncPartCheckboxes(): void {
     const checkbox = row?.querySelector<HTMLInputElement>("input");
     if (checkbox) checkbox.checked = part.mesh.visible;
   }
+}
+
+function toggleObjectRotateMode(): void {
+  objectRotateMode = !objectRotateMode;
+  controls.enableRotate = !objectRotateMode;
+  objectRotateDrag = null;
+  canvas.classList.toggle("object-rotate-mode", objectRotateMode);
+  setIconButtonState(
+    toggleObjectRotateEl,
+    objectRotateMode,
+    objectRotateMode ? "Use orbit camera" : "Rotate object with fixed camera",
+  );
+  updateStatus(objectRotateMode ? "Object rotate mode" : "Orbit camera mode");
+}
+
+function rotateAssemblyFromScreenDrag(dx: number, dy: number): void {
+  const speed = 0.008;
+  const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+  assembly.rotateOnWorldAxis(camera.up.clone().normalize(), dx * speed);
+  assembly.rotateOnWorldAxis(cameraRight, dy * speed);
+  updateSelectionBox();
 }
 
 function setIconButtonState(button: HTMLButtonElement, pressed: boolean, label: string): void {
