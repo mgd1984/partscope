@@ -81,8 +81,8 @@ const demoParts: PartDefinition[] = [
   {
     id: "base",
     label: "Base",
-    fileName: "concept_puck_v3_base.stl",
-    source: "/models/concept_puck_v3/concept_puck_v3_base.stl",
+    fileName: "sensor_puck_base.stl",
+    source: "/models/sensor_puck/sensor_puck_base.stl",
     color: 0x32363d,
     metalness: 0.72,
     roughness: 0.32,
@@ -91,8 +91,8 @@ const demoParts: PartDefinition[] = [
   {
     id: "battery",
     label: "18650",
-    fileName: "concept_puck_v3_battery_18650.stl",
-    source: "/models/concept_puck_v3/concept_puck_v3_battery_18650.stl",
+    fileName: "sensor_puck_battery_18650.stl",
+    source: "/models/sensor_puck/sensor_puck_battery_18650.stl",
     color: 0x6e7f38,
     metalness: 0.18,
     roughness: 0.5,
@@ -101,8 +101,8 @@ const demoParts: PartDefinition[] = [
   {
     id: "mainBoard",
     label: "Main board",
-    fileName: "concept_puck_v3_main_board.stl",
-    source: "/models/concept_puck_v3/concept_puck_v3_main_board.stl",
+    fileName: "sensor_puck_main_board.stl",
+    source: "/models/sensor_puck/sensor_puck_main_board.stl",
     color: 0x17603c,
     roughness: 0.76,
     explode: [0, 0, 5],
@@ -110,8 +110,8 @@ const demoParts: PartDefinition[] = [
   {
     id: "vibration",
     label: "Vibe reserve",
-    fileName: "concept_puck_v3_vibration_sensor.stl",
-    source: "/models/concept_puck_v3/concept_puck_v3_vibration_sensor.stl",
+    fileName: "sensor_puck_vibration_sensor.stl",
+    source: "/models/sensor_puck/sensor_puck_vibration_sensor.stl",
     color: 0xc07b28,
     metalness: 0.35,
     roughness: 0.34,
@@ -120,8 +120,8 @@ const demoParts: PartDefinition[] = [
   {
     id: "mezz",
     label: "Mezzanine",
-    fileName: "concept_puck_v3_mezz_connectors.stl",
-    source: "/models/concept_puck_v3/concept_puck_v3_mezz_connectors.stl",
+    fileName: "sensor_puck_mezz_connectors.stl",
+    source: "/models/sensor_puck/sensor_puck_mezz_connectors.stl",
     color: 0xd0b56c,
     metalness: 0.6,
     roughness: 0.34,
@@ -130,8 +130,8 @@ const demoParts: PartDefinition[] = [
   {
     id: "sensorBoard",
     label: "Sensor board",
-    fileName: "concept_puck_v3_sensor_board.stl",
-    source: "/models/concept_puck_v3/concept_puck_v3_sensor_board.stl",
+    fileName: "sensor_puck_sensor_board.stl",
+    source: "/models/sensor_puck/sensor_puck_sensor_board.stl",
     color: 0x1c7a4a,
     roughness: 0.68,
     explode: [0, 0, 13],
@@ -139,8 +139,8 @@ const demoParts: PartDefinition[] = [
   {
     id: "mics",
     label: "Mic capsules",
-    fileName: "concept_puck_v3_mic_capsules.stl",
-    source: "/models/concept_puck_v3/concept_puck_v3_mic_capsules.stl",
+    fileName: "sensor_puck_mic_capsules.stl",
+    source: "/models/sensor_puck/sensor_puck_mic_capsules.stl",
     color: 0x1c2024,
     metalness: 0.65,
     roughness: 0.28,
@@ -149,8 +149,8 @@ const demoParts: PartDefinition[] = [
   {
     id: "top",
     label: "Cap",
-    fileName: "concept_puck_v3_top.stl",
-    source: "/models/concept_puck_v3/concept_puck_v3_top.stl",
+    fileName: "sensor_puck_top.stl",
+    source: "/models/sensor_puck/sensor_puck_top.stl",
     color: 0xd9dee4,
     metalness: 0.04,
     roughness: 0.4,
@@ -1295,7 +1295,7 @@ function fallbackColor(index: number): number {
 function labelFromFileName(fileName: string): string {
   return fileName
     .replace(/\.(stl|obj|ply|glb|gltf|3mf)$/i, "")
-    .replace(/^concept_puck_v3_/i, "")
+    .replace(/^sensor_puck_/i, "")
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -1826,7 +1826,7 @@ function cloneMaterial(material: THREE.Material | THREE.Material[]): THREE.Mater
 }
 
 function downloadBlob(fileName: string, data: string | ArrayBuffer | Uint8Array | Blob, mimeType: string): void {
-  const blob = data instanceof Blob ? data : new Blob([data as unknown as ArrayBufferView<ArrayBuffer>], { type: mimeType });
+  const blob = data instanceof Blob ? data : new Blob([data as ArrayBufferView<ArrayBuffer>], { type: mimeType });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = fileName;
