@@ -281,13 +281,29 @@ scene.fog = new THREE.Fog(themePalette[theme].fog, 180, 380);
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1000);
 camera.up.set(0, 0, 1);
 
+const safariWebGl = isSafariBrowser();
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: true,
+  antialias: !safariWebGl,
   alpha: false,
-  preserveDrawingBuffer: true,
+  depth: true,
+  precision: "lowp",
+  powerPreference: safariWebGl ? "low-power" : "default",
+  preserveDrawingBuffer: false,
+  stencil: false,
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+let webglContextLost = false;
+canvas.addEventListener("webglcontextlost", (event) => {
+  event.preventDefault();
+  webglContextLost = true;
+  updateStatus("WebGL context lost; reload if the scene does not recover");
+});
+canvas.addEventListener("webglcontextrestored", () => {
+  webglContextLost = false;
+  resize();
+  updateStatus("WebGL context restored");
+});
+renderer.setPixelRatio(safariWebGl ? 1 : Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -424,7 +440,7 @@ function updateStatus(text: string): void {
 }
 
 function getInitialTheme(): ThemeName {
-  const saved = window.localStorage.getItem("monaq-cad-theme");
+  const saved = readLocalStorage("monaq-cad-theme");
   if (saved === "light" || saved === "dark") return saved;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
@@ -432,7 +448,7 @@ function getInitialTheme(): ThemeName {
 function applyTheme(nextTheme: ThemeName): void {
   theme = nextTheme;
   document.documentElement.dataset.theme = theme;
-  window.localStorage.setItem("monaq-cad-theme", theme);
+  writeLocalStorage("monaq-cad-theme", theme);
   themeToggleEl.setAttribute("aria-pressed", String(theme === "dark"));
   const themeLabel = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
   themeToggleEl.setAttribute("aria-label", themeLabel);
@@ -450,6 +466,35 @@ function updateGridColors(primary: number, secondary: number): void {
   const materials = Array.isArray(grid.material) ? grid.material : [grid.material];
   materials[0]?.color.setHex(primary);
   materials[1]?.color.setHex(secondary);
+}
+
+function readLocalStorage(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalStorage(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in Safari private/privacy modes.
+  }
+}
+
+function removeLocalStorage(key: string): void {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Storage can be unavailable in Safari private/privacy modes.
+  }
+}
+
+function isSafariBrowser(): boolean {
+  const userAgent = window.navigator.userAgent;
+  return /Safari/i.test(userAgent) && !/Chrome|Chromium|CriOS|FxiOS|Edg/i.test(userAgent);
 }
 
 function addLights(): void {
@@ -548,20 +593,12 @@ async function loadDemoAssembly(): Promise<void> {
 }
 
 function storedDemoId(): string | null {
-  try {
-    const value = window.localStorage.getItem(demoStorageKey);
-    return demoAssemblies.some((demo) => demo.id === value) ? value : null;
-  } catch {
-    return null;
-  }
+  const value = readLocalStorage(demoStorageKey);
+  return demoAssemblies.some((demo) => demo.id === value) ? value : null;
 }
 
 function storeDemoId(id: string): void {
-  try {
-    window.localStorage.setItem(demoStorageKey, id);
-  } catch {
-    // Demo persistence is a convenience; private browsing/storage errors should not block loading.
-  }
+  writeLocalStorage(demoStorageKey, id);
 }
 
 async function loadPartModel(part: PartDefinition): Promise<LoadedPartModel> {
@@ -1180,7 +1217,7 @@ function bindControls(): void {
     if (objectRotateMode && event.button === 0) {
       objectRotateDrag = { x: event.clientX, y: event.clientY };
       canvas.classList.add("is-object-rotating");
-      canvas.setPointerCapture(event.pointerId);
+      if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
     }
   });
 
@@ -1197,7 +1234,7 @@ function bindControls(): void {
     if (objectRotateDrag) {
       objectRotateDrag = null;
       canvas.classList.remove("is-object-rotating");
-      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     }
     if (!dragStart) return;
     const moved = Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y);
@@ -1280,7 +1317,7 @@ function bindSidecarControls(): void {
     sidecarEl.style.right = "";
     sidecarEl.style.bottom = "";
     sidecarEl.classList.remove("is-free");
-    window.localStorage.removeItem("partscope-sidecar-position");
+    removeLocalStorage("partscope-sidecar-position");
   });
 
   sidecarGripEl.addEventListener("keydown", (event) => {
@@ -1294,7 +1331,7 @@ function bindSidecarControls(): void {
     if (event.target instanceof Element && event.target.closest("button")) return;
     const rect = sidecarEl.getBoundingClientRect();
     dragState = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
-    sidecarGripEl.setPointerCapture(event.pointerId);
+    if (sidecarGripEl.setPointerCapture) sidecarGripEl.setPointerCapture(event.pointerId);
     sidecarEl.classList.add("is-dragging", "is-free");
     sidecarEl.style.right = "auto";
     sidecarEl.style.bottom = "auto";
@@ -1313,9 +1350,9 @@ function bindSidecarControls(): void {
   sidecarGripEl.addEventListener("pointerup", (event) => {
     if (!dragState) return;
     dragState = null;
-    sidecarGripEl.releasePointerCapture(event.pointerId);
+    if (sidecarGripEl.hasPointerCapture?.(event.pointerId)) sidecarGripEl.releasePointerCapture(event.pointerId);
     sidecarEl.classList.remove("is-dragging");
-    window.localStorage.setItem("partscope-sidecar-position", JSON.stringify({
+    writeLocalStorage("partscope-sidecar-position", JSON.stringify({
       left: sidecarEl.style.left,
       top: sidecarEl.style.top,
     }));
@@ -1323,10 +1360,10 @@ function bindSidecarControls(): void {
 }
 
 function restoreSidecarState(): void {
-  const collapsed = window.localStorage.getItem("partscope-sidecar-collapsed") === "true";
+  const collapsed = readLocalStorage("partscope-sidecar-collapsed") === "true";
   setSidecarCollapsed(collapsed);
 
-  const saved = window.localStorage.getItem("partscope-sidecar-position");
+  const saved = readLocalStorage("partscope-sidecar-position");
   if (!saved) return;
 
   try {
@@ -1338,7 +1375,7 @@ function restoreSidecarState(): void {
     sidecarEl.style.bottom = "auto";
     sidecarEl.classList.add("is-free");
   } catch {
-    window.localStorage.removeItem("partscope-sidecar-position");
+    removeLocalStorage("partscope-sidecar-position");
   }
 }
 
@@ -1349,13 +1386,13 @@ function setSidecarCollapsed(collapsed: boolean): void {
     sidecarEl.style.right = "";
     sidecarEl.style.bottom = "";
     sidecarEl.classList.remove("is-free");
-    window.localStorage.removeItem("partscope-sidecar-position");
+    removeLocalStorage("partscope-sidecar-position");
   }
   sidecarEl.classList.toggle("is-collapsed", collapsed);
   sidecarMinimizeEl.setAttribute("aria-pressed", String(collapsed));
   sidecarMinimizeEl.setAttribute("aria-label", collapsed ? "Expand inspector" : "Collapse inspector");
   sidecarMinimizeEl.title = collapsed ? "Expand inspector" : "Collapse inspector";
-  window.localStorage.setItem("partscope-sidecar-collapsed", String(collapsed));
+  writeLocalStorage("partscope-sidecar-collapsed", String(collapsed));
 }
 
 async function loadFilesFromPicker(files: FileList | null): Promise<void> {
@@ -1482,7 +1519,7 @@ function configureExplodeOffsets(): void {
 
   const layers: LoadedPart[][] = [];
   for (const part of orderedParts) {
-    const currentLayer = layers.at(-1);
+    const currentLayer = layers[layers.length - 1];
     if (!currentLayer) {
       layers.push([part]);
       continue;
@@ -2510,6 +2547,7 @@ function clamp(value: number, min: number, max: number): number {
 
 function animate(): void {
   requestAnimationFrame(animate);
+  if (webglContextLost || renderer.getContext().isContextLost()) return;
 
   explodeValue += (explodeTarget - explodeValue) * 0.09;
   explodeRangeEl.value = explodeValue.toFixed(3);
